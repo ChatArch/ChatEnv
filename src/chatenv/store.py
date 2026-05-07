@@ -57,7 +57,7 @@ class EnvStore:
         target = self.active_path(config_cls)
         target.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy(source, target)
-        return target
+        return source
 
     def delete_profile(self, config_cls: type[BaseEnvConfig], name: str) -> Path:
         target = self.profile_path(config_cls, name)

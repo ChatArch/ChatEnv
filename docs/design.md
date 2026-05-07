@@ -63,6 +63,7 @@ chatenv.fields      # EnvField / BaseEnvConfig
 chatenv.registry    # type / alias 解析
 chatenv.store       # profile 文件读写
 chatenv.paste       # 宽松 paste parser
+chatenv.discovery   # entry point provider 加载
 chatenv.cli         # click CLI / 可复用 command handler
 ```
 
@@ -72,8 +73,9 @@ core 模块不依赖 ChatTool，也不包含 ChatTool 的业务 schema 或连通
 
 ChatTool 作为 consumer：
 
-- `chattool.config.elements` 兼容导出 `chatenv.BaseEnvConfig` / `EnvField`；
-- ChatTool 继续在 `chattool.config.main`、`github.py`、`browser.py` 定义具体 schema；
-- `chattool.config.cli` 导入 ChatTool schema 后复用 ChatEnv 的 store/parser/registry 能力；
+- `chattool.config` 兼容导出 `chatenv.BaseEnvConfig` / `EnvField`；
+- ChatTool 在 `chattool.config` 包内定义具体 schema，后续可按配置类型拆文件；
+- ChatTool 通过 `chatenv.configs` entry point 注册 `chattool.config`；
+- `chatenv` 启动时加载 provider，并复用 ChatEnv 的 store/parser/registry 能力；
 - `chattool.const` 默认读取 `$CHATARCH_HOME/envs`；
 - 不做旧 `platformdirs` 路径 fallback，不提供 migrate 命令。

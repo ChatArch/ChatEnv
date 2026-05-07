@@ -11,7 +11,9 @@ from chatstyle import (
     abort_if_force_without_tty,
     add_interactive_option,
     ask_confirm,
+    ask_select,
     ask_text,
+    create_choice,
     resolve_command_inputs,
     resolve_interactive_mode,
 )
@@ -20,7 +22,7 @@ from .discovery import load_config_providers
 from .fields import BaseEnvConfig, EnvField, normalize_profile_name
 from .paste import iter_fields_for_values, parse_pasted_env_text
 from .paths import get_paths
-from .registry import require_single_config, resolve_config_types
+from .registry import resolve_config_types
 from .store import EnvStore
 from .utils import mask_secret
 
@@ -51,7 +53,30 @@ TEST_TARGET_SCHEMA = CommandSchema(
 )
 
 
-@click.group(name="chatenv")
+COMMAND_ORDER = [
+    "init",
+    "new",
+    "paste",
+    "use",
+    "list",
+    "cat",
+    "get",
+    "set",
+    "save",
+    "delete",
+    "test",
+]
+
+
+class OrderedGroup(click.Group):
+    def list_commands(self, ctx: click.Context) -> list[str]:
+        commands = set(self.commands)
+        ordered = [name for name in COMMAND_ORDER if name in commands]
+        ordered.extend(sorted(commands.difference(ordered)))
+        return ordered
+
+
+@click.group(name="chatenv", cls=OrderedGroup)
 @click.option("--home", type=click.Path(file_okay=False, path_type=Path), help="Override CHATARCH_HOME for this command.")
 @click.pass_context
 def cli(ctx: click.Context, home: Path | None):
@@ -70,7 +95,7 @@ def _envs_dir(ctx: click.Context) -> Path:
 
 
 def _matched_or_all(config_types: tuple[str, ...]) -> list[type[BaseEnvConfig]]:
-    return resolve_config_types(config_types) if config_types else list(BaseEnvConfig._registry)
+    return _ordered_config_classes(resolve_config_types(config_types)) if config_types else _ordered_config_classes()
 
 
 def _ensure_registered() -> None:
@@ -81,10 +106,104 @@ def _ensure_registered() -> None:
 
 
 def _require_one(config_types: tuple[str, ...], action: str) -> type[BaseEnvConfig]:
-    try:
-        return require_single_config(config_types, action)
-    except ValueError as exc:
-        raise click.ClickException(str(exc)) from exc
+    matched = _resolve_config_types_or_prompt(
+        config_types=config_types,
+        action=action,
+        interactive=False,
+        allow_multi=False,
+    )
+    return matched[0]
+
+
+def _ordered_config_classes(
+    configs: list[type[BaseEnvConfig]] | None = None,
+) -> list[type[BaseEnvConfig]]:
+    registry = list(BaseEnvConfig._registry)
+    target_configs = registry if configs is None else list(configs)
+    registry_index = {config_cls: index for index, config_cls in enumerate(registry)}
+
+    def sort_key(config_cls: type[BaseEnvConfig]) -> tuple[int, int]:
+        default_order = registry_index.get(config_cls, len(registry))
+        return int(getattr(config_cls, "_order", default_order)), default_order
+
+    return sorted(target_configs, key=sort_key)
+
+
+def _config_choice_title(config_cls: type[BaseEnvConfig]) -> str:
+    aliases = getattr(config_cls, "_aliases", [])
+    alias_text = f" ({', '.join(aliases)})" if aliases else ""
+    return f"{config_cls.get_storage_name()}{alias_text}"
+
+
+def _available_config_types_message() -> str:
+    lines = ["Available types (and aliases):"]
+    for config_cls in _ordered_config_classes():
+        lines.append(f"  - {_config_choice_title(config_cls)}")
+    return "\n".join(lines)
+
+
+def _select_config_interactive(
+    *,
+    action: str,
+    configs: list[type[BaseEnvConfig]] | None = None,
+) -> type[BaseEnvConfig]:
+    choices = [
+        create_choice(title=_config_choice_title(config_cls), value=config_cls)
+        for config_cls in _ordered_config_classes(configs)
+    ]
+    selected = ask_select(f"Select one config type for {action}:", choices=choices)
+    if selected == BACK_VALUE:
+        raise click.Abort()
+    return selected
+
+
+def _resolve_config_types_or_prompt(
+    *,
+    config_types: tuple[str, ...],
+    action: str,
+    interactive: bool | None,
+    allow_multi: bool,
+) -> list[type[BaseEnvConfig]]:
+    _ensure_registered()
+    usage = f"Usage: chatenv {action} [-t TYPE] [-i|-I]"
+    matched = _ordered_config_classes(resolve_config_types(config_types) or [])
+    needs_selection = not config_types or not matched or (not allow_multi and len(matched) != 1)
+    resolution = resolve_interactive_mode(
+        interactive,
+        auto_prompt_condition=needs_selection,
+    )
+    abort_if_force_without_tty(
+        resolution.force_interactive,
+        resolution.can_prompt,
+        usage,
+    )
+
+    if config_types and matched and (allow_multi or len(matched) == 1):
+        return matched
+
+    if resolution.need_prompt:
+        if config_types and not matched:
+            click.echo(f"No configuration types matched: {', '.join(config_types)}")
+        elif config_types and len(matched) != 1:
+            names = ", ".join(config_cls.get_storage_name() for config_cls in matched)
+            click.echo(f"{action} requires exactly one config type. Matched: {names}")
+        selectable = matched if config_types and len(matched) > 1 else None
+        return [_select_config_interactive(action=action, configs=selectable)]
+
+    if not config_types and allow_multi:
+        return list(BaseEnvConfig._registry)
+    if not config_types:
+        raise click.ClickException(
+            f"{action} requires --type/-t outside interactive mode.\n{_available_config_types_message()}"
+        )
+    if not matched:
+        raise click.ClickException(
+            f"No configuration types matched: {', '.join(config_types)}\n{_available_config_types_message()}"
+        )
+    names = ", ".join(config_cls.get_storage_name() for config_cls in matched)
+    raise click.ClickException(
+        f"{action} requires exactly one config type. Matched: {names}\n{_available_config_types_message()}"
+    )
 
 
 def _resolve_profile_name(
@@ -148,15 +267,23 @@ def _configure_fields(config_cls: type[BaseEnvConfig]) -> None:
 @click.pass_context
 def init_env(ctx: click.Context, config_types: tuple[str, ...], interactive: bool | None):
     """Create or update active typed env files."""
-    configs = _matched_or_all(config_types)
-    _ensure_registered()
-    if config_types and not configs:
-        click.echo(f"No configuration types matched: {', '.join(config_types)}")
-        return
+    configs = _resolve_config_types_or_prompt(
+        config_types=config_types,
+        action="init",
+        interactive=interactive,
+        allow_multi=True,
+    )
     _load_all(ctx)
-    if interactive is None:
-        interactive = True
-    if interactive:
+    resolution = resolve_interactive_mode(
+        interactive,
+        auto_prompt_condition=True,
+    )
+    abort_if_force_without_tty(
+        resolution.force_interactive,
+        resolution.can_prompt,
+        "Usage: chatenv init [-t TYPE] [-i|-I]",
+    )
+    if resolution.need_prompt:
         for config_cls in configs:
             _configure_fields(config_cls)
     for config_cls in configs:
@@ -220,13 +347,18 @@ def cat_env(ctx: click.Context, name: str | None, no_mask: bool, config_types: t
 
 @cli.command(name="new")
 @click.argument("name", required=False)
-@click.option("--type", "config_types", "-t", multiple=True, required=True, help="Target exactly one config type.")
+@click.option("--type", "config_types", "-t", multiple=True, help="Target exactly one config type.")
 @click.option("--yes", "yes", "-y", is_flag=True, help="Overwrite without prompting.")
 @click.pass_context
 @add_interactive_option
 def new_env(ctx: click.Context, name: str | None, config_types: tuple[str, ...], yes: bool, interactive: bool | None):
     """Create a named typed profile without activating it."""
-    config_cls = _require_one(config_types, "new")
+    config_cls = _resolve_config_types_or_prompt(
+        config_types=config_types,
+        action="new",
+        interactive=interactive,
+        allow_multi=False,
+    )[0]
     prompt_for_values = name is None
     name = _resolve_profile_name(
         name=name,
@@ -247,13 +379,18 @@ def new_env(ctx: click.Context, name: str | None, config_types: tuple[str, ...],
 
 @cli.command(name="save")
 @click.argument("name", required=False)
-@click.option("--type", "config_types", "-t", multiple=True, required=True, help="Target exactly one config type.")
+@click.option("--type", "config_types", "-t", multiple=True, help="Target exactly one config type.")
 @click.option("--yes", "yes", "-y", is_flag=True, help="Overwrite without prompting.")
 @click.pass_context
 @add_interactive_option
 def save_env(ctx: click.Context, name: str | None, config_types: tuple[str, ...], yes: bool, interactive: bool | None):
     """Save current active values as a named profile."""
-    config_cls = _require_one(config_types, "save")
+    config_cls = _resolve_config_types_or_prompt(
+        config_types=config_types,
+        action="save",
+        interactive=interactive,
+        allow_multi=False,
+    )[0]
     name = _resolve_profile_name(name=name, action="save", interactive=interactive)
     store = _store(ctx)
     target = store.profile_path(config_cls, name)
@@ -266,12 +403,17 @@ def save_env(ctx: click.Context, name: str | None, config_types: tuple[str, ...]
 
 @cli.command(name="use")
 @click.argument("name", required=False)
-@click.option("--type", "config_types", "-t", multiple=True, required=True, help="Target exactly one config type.")
+@click.option("--type", "config_types", "-t", multiple=True, help="Target exactly one config type.")
 @click.pass_context
 @add_interactive_option
 def use_env(ctx: click.Context, name: str | None, config_types: tuple[str, ...], interactive: bool | None):
     """Activate a named profile for one config type."""
-    config_cls = _require_one(config_types, "use")
+    config_cls = _resolve_config_types_or_prompt(
+        config_types=config_types,
+        action="use",
+        interactive=interactive,
+        allow_multi=False,
+    )[0]
     name = _resolve_profile_name(name=name, action="use", interactive=interactive)
     try:
         target = _store(ctx).use_profile(config_cls, name)
@@ -283,13 +425,18 @@ def use_env(ctx: click.Context, name: str | None, config_types: tuple[str, ...],
 
 @cli.command(name="delete")
 @click.argument("name", required=False)
-@click.option("--type", "config_types", "-t", multiple=True, required=True, help="Target exactly one config type.")
+@click.option("--type", "config_types", "-t", multiple=True, help="Target exactly one config type.")
 @click.option("--yes", "yes", "-y", is_flag=True, help="Delete without prompting.")
 @click.pass_context
 @add_interactive_option
 def delete_env(ctx: click.Context, name: str | None, config_types: tuple[str, ...], yes: bool, interactive: bool | None):
     """Delete a named profile for one config type."""
-    config_cls = _require_one(config_types, "delete")
+    config_cls = _resolve_config_types_or_prompt(
+        config_types=config_types,
+        action="delete",
+        interactive=interactive,
+        allow_multi=False,
+    )[0]
     name = _resolve_profile_name(name=name, action="delete", interactive=interactive)
     target = _store(ctx).profile_path(config_cls, name)
     if not target.exists():
@@ -353,30 +500,6 @@ def get_env(ctx: click.Context, key: str | None, interactive: bool | None):
         return
     _, field = match
     click.echo("" if field.value is None else field.value)
-
-
-@cli.command(name="unset")
-@click.argument("key", required=False)
-@click.pass_context
-@add_interactive_option
-def unset_env(ctx: click.Context, key: str | None, interactive: bool | None):
-    """Unset a configuration value in the matching active typed env file."""
-    inputs = resolve_command_inputs(
-        schema=KEY_SCHEMA,
-        provided={"key": key},
-        interactive=interactive,
-        usage="Usage: chatenv unset [KEY] [-i|-I]",
-    )
-    key = inputs["key"]
-    _load_all(ctx)
-    match = BaseEnvConfig.find_field(key)
-    if match is None:
-        click.echo(f"Error: Key '{key}' not found", err=True)
-        return
-    config_cls, _ = match
-    BaseEnvConfig.set(key, "")
-    _write_active(ctx, config_cls)
-    click.echo(f"Unset {key}")
 
 
 @cli.command(name="test")

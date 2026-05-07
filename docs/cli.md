@@ -68,10 +68,9 @@ chatenv delete -t example work    # 删除 work.env
 ```bash
 chatenv set EXAMPLE_API_KEY=sk-xxx
 chatenv get EXAMPLE_API_KEY
-chatenv unset EXAMPLE_API_KEY
 ```
 
-`set/unset` 会根据 key 所属 schema 写回对应类型的 active `.env`。
+`set` 会根据 key 所属 schema 写回对应类型的 active `.env`。
 
 ## Paste
 

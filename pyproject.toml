@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "chatenv"
+dynamic = ["version"]
+description = "ChatTool Env"
+readme = "README.md"
+requires-python = ">=3.9"
+license = "MIT"
+authors = [{name = "rexwzh", email = "1073853456@qq.com"}]
+keywords = ["chatenv"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Operating System :: OS Independent",
+]
+
+[tool.setuptools.dynamic]
+version = {attr = "chatenv.__version__"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools]
+include-package-data = true

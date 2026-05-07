@@ -1,11 +1,7 @@
 from __future__ import annotations
 
-import os
-import shutil
 import sys
 from pathlib import Path
-from typing import Any
-
 import click
 
 from .fields import BaseEnvConfig, EnvField, normalize_profile_name
@@ -14,10 +10,6 @@ from .paths import get_paths
 from .registry import require_single_config, resolve_config_types
 from .store import EnvStore
 from .utils import mask_secret
-
-# Register the compatibility schemas by default. Downstream packages may import
-# their own schema modules before invoking cli() to extend the registry.
-import chatenv.presets.chattool  # noqa: F401,E402
 
 
 @click.group(name="chatenv")
@@ -39,6 +31,13 @@ def _envs_dir(ctx: click.Context) -> Path:
 
 def _matched_or_all(config_types: tuple[str, ...]) -> list[type[BaseEnvConfig]]:
     return resolve_config_types(config_types) if config_types else list(BaseEnvConfig._registry)
+
+
+def _ensure_registered() -> None:
+    if not BaseEnvConfig._registry:
+        raise click.ClickException(
+            "No configuration schemas registered. Import/register project schemas before using chatenv commands."
+        )
 
 
 def _require_one(config_types: tuple[str, ...], action: str) -> type[BaseEnvConfig]:
@@ -87,6 +86,7 @@ def _configure_fields(config_cls: type[BaseEnvConfig]) -> None:
 def init_env(ctx: click.Context, config_types: tuple[str, ...], interactive: bool):
     """Create or update active typed env files."""
     configs = _matched_or_all(config_types)
+    _ensure_registered()
     if config_types and not configs:
         raise click.ClickException(f"No configuration types matched: {', '.join(config_types)}")
     _load_all(ctx)
@@ -105,6 +105,7 @@ def list_env(ctx: click.Context, config_types: tuple[str, ...]):
     """List available named profiles grouped by config type."""
     store = _store(ctx)
     configs = _matched_or_all(config_types)
+    _ensure_registered()
     if config_types and not configs:
         raise click.ClickException(f"No configuration types matched: {', '.join(config_types)}")
     found = False
@@ -138,6 +139,7 @@ def cat_env(ctx: click.Context, name: str | None, no_mask: bool, config_types: t
         return
 
     configs = _matched_or_all(config_types)
+    _ensure_registered()
     if config_types and not configs:
         raise click.ClickException(f"No configuration types matched: {', '.join(config_types)}")
     _load_all(ctx)
@@ -330,61 +332,6 @@ def paste_env(ctx: click.Context, value: str | None, read_stdin: bool, profile: 
         for field, _ in iter_fields_for_values(config_cls, values):
             click.echo(f"  - {field.env_key}")
     click.echo(f"Configuration saved to {_envs_dir(ctx)}")
-
-
-def _legacy_chattool_config_dir() -> Path:
-    if os.getenv("CHATTOOL_CONFIG_DIR"):
-        return Path(os.environ["CHATTOOL_CONFIG_DIR"]).expanduser()
-    try:
-        import platformdirs
-
-        return Path(platformdirs.user_config_dir("chattool"))
-    except Exception:
-        return Path("~/.config/chattool").expanduser()
-
-
-@cli.group(name="migrate")
-def migrate_group():
-    """Migration helpers."""
-
-
-@migrate_group.command(name="chattool")
-@click.option("--source", type=click.Path(file_okay=False, path_type=Path), help="Old ChatTool config directory.")
-@click.option("--execute", is_flag=True, help="Copy files. Without this, only show a dry run.")
-@click.option("--yes", "yes", "-y", is_flag=True, help="Overwrite without prompting.")
-@click.pass_context
-def migrate_chattool(ctx: click.Context, source: Path | None, execute: bool, yes: bool):
-    """Migrate old ChatTool envs into $CHATARCH_HOME/envs."""
-    source_dir = source or _legacy_chattool_config_dir()
-    source_envs = source_dir / "envs"
-    target_envs = _envs_dir(ctx)
-    if not source_envs.exists():
-        raise click.ClickException(f"Source envs directory not found: {source_envs}")
-    files = [path for path in source_envs.rglob("*.env") if path.is_file()]
-    legacy_dotenv = source_dir / ".env"
-    if legacy_dotenv.exists():
-        files.append(legacy_dotenv)
-    if not files:
-        click.echo(f"No env files found under {source_envs}")
-        return
-    click.echo(f"Migrate ChatTool env files from {source_dir} to {target_envs}")
-    for src in files:
-        rel = src.relative_to(source_dir) if src != legacy_dotenv else Path(".env")
-        dst = target_envs / rel.relative_to("envs") if rel.parts and rel.parts[0] == "envs" else target_envs / "legacy.env"
-        click.echo(f"- {src} -> {dst}")
-    if not execute:
-        click.echo("Dry run only. Re-run with --execute to copy files.")
-        return
-    if not yes and not click.confirm("Copy these files now?", default=False):
-        raise click.Abort()
-    for src in files:
-        rel = src.relative_to(source_dir) if src != legacy_dotenv else Path(".env")
-        dst = target_envs / rel.relative_to("envs") if rel.parts and rel.parts[0] == "envs" else target_envs / "legacy.env"
-        if dst.exists() and not yes and not click.confirm(f"Overwrite {dst}?", default=False):
-            continue
-        dst.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy(src, dst)
-    click.echo(f"Migration completed: {target_envs}")
 
 
 def main() -> None:

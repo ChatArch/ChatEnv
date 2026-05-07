@@ -17,11 +17,11 @@
 
 # ChatEnv
 
-ChatArch typed env/profile manager.
+ChatArch typed env/profile runtime.
 
 </div>
 
-ChatEnv 是 ChatArch 的底层 typed env/profile 管理包，用来把 OpenAI、DNS、Feishu 等工具密钥按“配置类型 + profile”存到统一位置，并提供 Python API 与 `chatenv` CLI。
+ChatEnv 是 ChatArch / chatxxx 系列项目共用的 typed env/profile 底层包。它只提供字段描述、配置基类、registry、路径、profile 文件读写、mask 和 paste 解析等通用能力；具体变量由 ChatTool、ChatDNS 等项目自己定义并注册。
 
 当前设计保持减法：只使用一个根变量 `CHATARCH_HOME`，只管理 env/profile 文件，不额外创建 config/cache/data/state。
 
@@ -41,43 +41,39 @@ CHATARCH_HOME=${CHATARCH_HOME:-~/.chatarch}
 $CHATARCH_HOME/envs/
 ```
 
-实际布局：
+实际布局由业务项目注册的 schema 决定，例如：
 
 ```text
 ~/.chatarch/envs/
-  OpenAI/
+  Example/
     .env
     work.env
-  Aliyun/
-    .env
-  Tencent/
-    .env
 ```
 
 - `.env` 是当前 active profile；
 - `name.env` 是 named profile；
-- `chatenv use -t TYPE name` 会把 named profile 复制为 active `.env`。
+- `use` 会把 named profile 复制为 active `.env`。
 
 ## CLI 概览
 
+`chatenv` CLI 基于已注册 schema 工作。单独安装且没有项目注册 schema 时，它会提示需要先注册配置类型。业务项目通常会在自己的 CLI 中导入 schema 后复用这些能力。
+
 ```bash
-chatenv init -t oai
-chatenv cat -t oai
-chatenv cat -t oai --no-mask | chatenv paste --stdin --profile work --yes
-chatenv set OPENAI_API_KEY=sk-xxx
-chatenv get OPENAI_API_KEY
-chatenv new -t oai work
-chatenv save -t oai work
-chatenv use -t oai work
-chatenv delete -t oai work
-chatenv migrate chattool          # dry-run
-chatenv migrate chattool --execute
+chatenv init -t example
+chatenv cat -t example
+chatenv cat -t example --no-mask | chatenv paste --stdin --profile work --yes
+chatenv set EXAMPLE_API_KEY=sk-xxx
+chatenv get EXAMPLE_API_KEY
+chatenv new -t example work
+chatenv save -t example work
+chatenv use -t example work
+chatenv delete -t example work
 ```
 
 单次命令可通过 `--home` 覆盖根目录：
 
 ```bash
-chatenv --home /tmp/chatarch cat -t oai
+chatenv --home /tmp/chatarch cat -t example
 ```
 
 更多用法见 `docs/cli.md`。
@@ -89,7 +85,7 @@ chatenv --home /tmp/chatarch cat -t oai
 ```bash
 chatenv paste
 chatenv paste --stdin --profile work
-chatenv paste --value "OPENAI_API_KEY='sk-xxx'" --yes
+chatenv paste --value "EXAMPLE_API_KEY='sk-xxx'" --yes
 ```
 
 写入前会输出识别概要：识别到哪些类型、哪些 key、未知 key 被忽略。
@@ -99,22 +95,22 @@ chatenv paste --value "OPENAI_API_KEY='sk-xxx'" --yes
 ```python
 from chatenv import BaseEnvConfig, EnvField, EnvStore, get_paths
 
-class OpenAIConfig(BaseEnvConfig):
-    _title = "OpenAI Configuration"
-    _aliases = ["oai", "openai"]
-    _storage_dir = "OpenAI"
+class ExampleConfig(BaseEnvConfig):
+    _title = "Example Configuration"
+    _aliases = ["example"]
+    _storage_dir = "Example"
 
-    OPENAI_API_KEY = EnvField("OPENAI_API_KEY", is_sensitive=True)
+    EXAMPLE_API_KEY = EnvField("EXAMPLE_API_KEY", is_sensitive=True)
 
 paths = get_paths()
 store = EnvStore(paths.envs_dir)
-store.save_active(OpenAIConfig, {"OPENAI_API_KEY": "sk-..."})
+store.save_active(ExampleConfig, {"EXAMPLE_API_KEY": "sk-..."})
 ```
 
 ## 文档
 
 - `docs/cli.md`：CLI 用法
-- `docs/design.md`：路径、数据布局与兼容策略
+- `docs/design.md`：路径、数据布局与注册策略
 - `docs/development.md`：测试、构建与发布
 
 ## 开发

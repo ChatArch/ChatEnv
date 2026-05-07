@@ -5,7 +5,6 @@ from chatenv.fields import BaseEnvConfig, EnvField
 from chatenv.paste import parse_pasted_env_text
 from chatenv.paths import get_paths
 from chatenv.store import EnvStore
-from chatenv.presets.chattool import OpenAIConfig
 
 
 class UnitConfig(BaseEnvConfig):
@@ -36,31 +35,46 @@ def test_store_profile_roundtrip(tmp_path):
     assert values["UNIT_VALUE"] == "x"
 
 
+def test_base_env_config_compat_helpers(tmp_path, capsys):
+    assert BaseEnvConfig.get_config_by_alias("unit") is UnitConfig
+    assert BaseEnvConfig.get_config_by_alias("Unit") is UnitConfig
+
+    UnitConfig.load_from_sources(env_values={"UNIT_KEY": "secret", "UNIT_VALUE": "x"})
+    BaseEnvConfig.save_env_file(tmp_path / "envs")
+    assert (tmp_path / "envs" / "Unit" / ".env").exists()
+
+    BaseEnvConfig.print_config()
+    output = capsys.readouterr().out
+    assert "Unit Configuration" in output
+    assert "UNIT_KEY" in output
+    assert "secret" not in output
+
+
 def test_paste_parser_extracts_from_loose_terminal_text():
     text = """
     > chatenv paste
-    >: OPENAI_API_BASE='https://example.com/v1'
-    OPENAI_API_KEY='sk-abcdefghijklmnopqrstuvwxyz123456'
+    >: UNIT_VALUE='from-paste'
+    UNIT_KEY='sk-abcdefghijklmnopqrstuvwxyz123456'
     junk UNKNOWN_KEY=nope
     """
     result = parse_pasted_env_text(text)
-    assert result.grouped[OpenAIConfig]["OPENAI_API_BASE"] == "https://example.com/v1"
-    assert result.grouped[OpenAIConfig]["OPENAI_API_KEY"].startswith("sk-")
+    assert result.grouped[UnitConfig]["UNIT_VALUE"] == "from-paste"
+    assert result.grouped[UnitConfig]["UNIT_KEY"].startswith("sk-")
     assert result.unknown == ["UNKNOWN_KEY"]
 
 
 def test_cli_paste_active_and_cat(tmp_path):
     runner = CliRunner()
     home = tmp_path / "arch"
-    value = "OPENAI_API_BASE='https://example.com/v1'\nOPENAI_API_KEY='sk-abcdefghijklmnopqrstuvwxyz123456'\n"
+    value = "UNIT_VALUE='from-cli'\nUNIT_KEY='sk-abcdefghijklmnopqrstuvwxyz123456'\n"
     result = runner.invoke(cli, ["--home", str(home), "paste", "--value", value, "--yes"])
     assert result.exit_code == 0, result.output
     assert "Written values" in result.output
-    assert (home / "envs" / "OpenAI" / ".env").exists()
+    assert (home / "envs" / "Unit" / ".env").exists()
 
-    cat = runner.invoke(cli, ["--home", str(home), "cat", "-t", "oai"])
+    cat = runner.invoke(cli, ["--home", str(home), "cat", "-t", "unit"])
     assert cat.exit_code == 0, cat.output
-    assert "OPENAI_API_BASE='https://example.com/v1'" in cat.output
+    assert "UNIT_VALUE='from-cli'" in cat.output
     assert "sk-abcde" in cat.output
     assert "123456" in cat.output
     assert "abcdefghijklmnopqrstuvwxyz" not in cat.output

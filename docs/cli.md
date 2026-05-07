@@ -15,35 +15,50 @@ $CHATARCH_HOME/envs/
 也可以对单次命令使用 `--home`：
 
 ```bash
-chatenv --home /tmp/chatarch cat -t oai
+chatenv --home /tmp/chatarch cat -t example
+```
+
+## Schema 注册
+
+`chatenv` 命令基于已注册 schema 工作。ChatEnv 自身不内置业务变量；业务项目需要先定义并导入自己的 `BaseEnvConfig` 子类。
+
+```python
+from chatenv import BaseEnvConfig, EnvField
+
+class ExampleConfig(BaseEnvConfig):
+    _title = "Example Configuration"
+    _aliases = ["example"]
+    _storage_dir = "Example"
+
+    EXAMPLE_API_KEY = EnvField("EXAMPLE_API_KEY", is_sensitive=True)
 ```
 
 ## 初始化
 
 ```bash
 chatenv init                  # 写入全部已注册类型的 active .env
-chatenv init -t oai           # 只写入 OpenAI 类型
-chatenv init -t oai -i        # 初始化前逐项补问
+chatenv init -t example       # 只写入 Example 类型
+chatenv init -t example -i    # 初始化前逐项补问
 ```
 
 ## 查看
 
 ```bash
 chatenv list                  # 按类型列出 named profiles
-chatenv list -t oai
+chatenv list -t example
 chatenv cat                   # 输出所有 active values，敏感值默认打码
-chatenv cat -t oai
-chatenv cat -t oai work       # 输出 OpenAI/work.env
-chatenv cat -t oai --no-mask  # 明文输出，适合 pipe 给安全的目标
+chatenv cat -t example
+chatenv cat -t example work   # 输出 Example/work.env
+chatenv cat -t example --no-mask
 ```
 
 ## Profile
 
 ```bash
-chatenv new -t oai work       # 从当前 active values 创建 work.env
-chatenv save -t oai work      # 保存当前 active values 到 work.env
-chatenv use -t oai work       # 将 work.env 激活为 .env
-chatenv delete -t oai work    # 删除 work.env
+chatenv new -t example work       # 从当前 active values 创建 work.env
+chatenv save -t example work      # 保存当前 active values 到 work.env
+chatenv use -t example work       # 将 work.env 激活为 .env
+chatenv delete -t example work    # 删除 work.env
 ```
 
 `new/save/delete` 遇到覆盖或删除会确认；自动化场景使用 `-y/--yes`。
@@ -51,9 +66,9 @@ chatenv delete -t oai work    # 删除 work.env
 ## Key 操作
 
 ```bash
-chatenv set OPENAI_API_KEY=sk-xxx
-chatenv get OPENAI_API_KEY
-chatenv unset OPENAI_API_KEY
+chatenv set EXAMPLE_API_KEY=sk-xxx
+chatenv get EXAMPLE_API_KEY
+chatenv unset EXAMPLE_API_KEY
 ```
 
 `set/unset` 会根据 key 所属 schema 写回对应类型的 active `.env`。
@@ -63,19 +78,9 @@ chatenv unset OPENAI_API_KEY
 `paste` 用于跨机器复制 typed env。输入不要求是严格 dotenv 文件，会从终端日志、shell prompt、复制文本里提取已注册 key。
 
 ```bash
-chatenv cat -t oai --no-mask | chatenv paste --stdin --profile work --yes
-chatenv paste --value "OPENAI_API_KEY='sk-xxx'" --yes
-chatenv paste                         # 交互式粘贴，空行结束
+chatenv cat -t example --no-mask | chatenv paste --stdin --profile work --yes
+chatenv paste --value "EXAMPLE_API_KEY='sk-xxx'" --yes
+chatenv paste
 ```
 
 写入前会输出识别概要：识别到哪些类型、哪些 key、未知 key 被忽略。
-
-## 迁移 ChatTool
-
-```bash
-chatenv migrate chattool              # dry-run
-chatenv migrate chattool --execute    # 执行复制
-chatenv migrate chattool --source ~/.config/chattool --execute
-```
-
-迁移只复制旧 `envs/` 中的 env 文件到 `$CHATARCH_HOME/envs/`，不会删除旧文件。

@@ -1,6 +1,6 @@
 # 设计说明
 
-ChatEnv 是 ChatArch 的 typed env/profile 底层模块。它的职责是把不同工具的密钥、endpoint、模型名等环境变量按“类型 + profile”组织起来，并提供 CLI 与 Python API。
+ChatEnv 是 ChatArch / chatxxx 系列项目的 typed env/profile 底层模块。它的职责是提供通用的字段描述、配置基类、registry、路径、profile 文件读写、mask 和 paste 解析；具体 env 变量由各项目自己定义和注册。
 
 ## 目录原则
 
@@ -18,27 +18,42 @@ $CHATARCH_HOME/envs/
 - data/state 目录；
 - 细分路径环境变量。
 
-原因是当前 ChatTool 实际落盘主要是 `~/.config/chattool/envs`，`~/.cache/chattool` 基本不承载状态。ChatEnv 独立化优先迁移真实使用的 env/profile，不顺手扩大配置系统。
+ChatEnv 只负责 env/profile 存储规则，不负责业务工具自己的普通配置和缓存。
 
 ## 数据布局
 
 ```text
 $CHATARCH_HOME/envs/
-  OpenAI/
+  Example/
     .env
     work.env
     apple.env
-  Aliyun/
-    .env
-  Tencent/
-    .env
 ```
 
 每个 schema 类型对应一个目录：
 
 - `.env` 是 active profile；
 - `name.env` 是 named profile；
-- `chatenv use -t TYPE name` 将 named profile 复制为 active `.env`。
+- `use` 将 named profile 复制为 active `.env`。
+
+目录名来自业务项目定义的 `_storage_dir` / `get_storage_name()`。
+
+## 注册策略
+
+ChatEnv 沿用注册式配置模型：
+
+```python
+from chatenv import BaseEnvConfig, EnvField
+
+class ExampleConfig(BaseEnvConfig):
+    _title = "Example Configuration"
+    _aliases = ["example"]
+    _storage_dir = "Example"
+
+    EXAMPLE_API_KEY = EnvField("EXAMPLE_API_KEY", is_sensitive=True)
+```
+
+实际注册逻辑发生在业务项目中：业务项目 import 自己的配置模块后，配置类通过 `BaseEnvConfig.__init_subclass__` 进入 registry。ChatEnv 不内置 ChatTool、ChatDNS 等项目的具体变量清单。
 
 ## 分层
 
@@ -48,17 +63,17 @@ chatenv.fields      # EnvField / BaseEnvConfig
 chatenv.registry    # type / alias 解析
 chatenv.store       # profile 文件读写
 chatenv.paste       # 宽松 paste parser
-chatenv.cli         # click CLI
-chatenv.presets     # 迁移期 schema preset
+chatenv.cli         # click CLI / 可复用 command handler
 ```
 
-core 模块不依赖 ChatTool；`presets.chattool` 只提供字段定义，不包含 OpenAI/DNS/Feishu 等业务连通性测试。
+core 模块不依赖 ChatTool，也不包含 ChatTool 的业务 schema 或连通性测试。
 
-## 兼容策略
+## ChatTool 7.0.0 接入策略
 
-ChatEnv 第一版内置 `chatenv.presets.chattool`，方便直接复用当前 ChatTool 常见 schema。后续 ChatTool 迁移时，可以选择：
+ChatTool 作为 consumer：
 
-1. 继续由 ChatEnv 提供迁移期 preset；
-2. ChatTool 自己注册业务 schema，ChatEnv 只作为 runtime/store。
-
-`chatenv migrate chattool` 只做复制，不删除旧文件，默认 dry-run。
+- `chattool.config.elements` 兼容导出 `chatenv.BaseEnvConfig` / `EnvField`；
+- ChatTool 继续在 `chattool.config.main`、`github.py`、`browser.py` 定义具体 schema；
+- `chattool.config.cli` 导入 ChatTool schema 后复用 ChatEnv 的 store/parser/registry 能力；
+- `chattool.const` 默认读取 `$CHATARCH_HOME/envs`；
+- 不做旧 `platformdirs` 路径 fallback，不提供 migrate 命令。

@@ -200,6 +200,47 @@ class BaseEnvConfig:
                 lines.append("")
         return "\n".join(lines)
 
+    @classmethod
+    def get_config_by_alias(cls, alias: str) -> type["BaseEnvConfig"] | None:
+        normalized = alias.strip().lower()
+        for config_cls in cls._registry:
+            aliases = [item.lower() for item in getattr(config_cls, "_aliases", [])]
+            if normalized in aliases or normalized == config_cls.get_storage_name().lower():
+                return config_cls
+        return None
+
+    @classmethod
+    def test(cls) -> None:
+        print(f"Testing {cls._title}...")
+        raise NotImplementedError("Test method not implemented for this configuration.")
+
+    @classmethod
+    def save_env_file(cls, env_path: str | Path, version: str = "0.0.0") -> None:
+        path = Path(env_path)
+        if path.suffix == ".env":
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(cls.generate_env_template(version), encoding="utf-8")
+            return
+
+        path.mkdir(parents=True, exist_ok=True)
+        for config_cls in cls._registry:
+            config_dir = config_cls.get_storage_dir(path)
+            config_dir.mkdir(parents=True, exist_ok=True)
+            config_cls.get_active_env_file(path).write_text(
+                config_cls.render_env_file(),
+                encoding="utf-8",
+            )
+
+    @classmethod
+    def print_config(cls) -> None:
+        for config_cls in cls._registry:
+            print(f"\n{config_cls._title}:")
+            for name, field in config_cls.get_fields().items():
+                if not field.value:
+                    continue
+                shown = field.mask_value() if field.is_sensitive else field.value
+                print(f"  {name}: {shown}")
+
 
 def normalize_profile_name(name: str) -> str:
     profile_name = str(name).strip()

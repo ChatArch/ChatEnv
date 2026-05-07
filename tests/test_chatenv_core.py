@@ -1,3 +1,5 @@
+from types import SimpleNamespace
+
 from click.testing import CliRunner
 
 from chatenv.cli import cli
@@ -102,3 +104,116 @@ def test_cli_delete_profile_requires_confirmation(tmp_path):
     )
     assert confirmed.exit_code == 0, confirmed.output
     assert not profile.exists()
+
+
+def _interactive_resolution(interactive=None, *, auto_prompt_condition=True):
+    return SimpleNamespace(
+        interactive=interactive,
+        can_prompt=True,
+        force_interactive=interactive is True,
+        need_prompt=True,
+    )
+
+
+def test_cli_new_prompts_for_config_type_when_type_missing(
+    tmp_path, monkeypatch
+):
+    runner = CliRunner()
+    home = tmp_path / "arch"
+    selected_messages = []
+
+    monkeypatch.setattr(
+        "chatenv.cli.resolve_interactive_mode",
+        _interactive_resolution,
+    )
+    monkeypatch.setattr(
+        "chatenv.cli.ask_select",
+        lambda message, choices: selected_messages.append(message) or UnitConfig,
+    )
+    monkeypatch.setattr(
+        "chatenv.cli.resolve_command_inputs",
+        lambda **kwargs: {"name": "work"},
+    )
+    monkeypatch.setattr("chatenv.cli.ask_text", lambda *args, **kwargs: "")
+
+    result = runner.invoke(cli, ["--home", str(home), "new"])
+
+    assert result.exit_code == 0, result.output
+    assert selected_messages == ["Select one config type for new:"]
+    assert (home / "envs" / "Unit" / "work.env").exists()
+
+
+def test_cli_new_bad_type_shows_available_types_outside_interactive(tmp_path):
+    runner = CliRunner()
+    home = tmp_path / "arch"
+
+    result = runner.invoke(
+        cli,
+        ["--home", str(home), "new", "-t", "missing", "work", "-I"],
+    )
+
+    assert result.exit_code != 0
+    assert "No configuration types matched: missing" in result.output
+    assert "Available types (and aliases):" in result.output
+    assert "Unit (unit)" in result.output
+
+
+def test_cli_init_prompts_for_config_type_when_type_missing(
+    tmp_path, monkeypatch
+):
+    runner = CliRunner()
+    home = tmp_path / "arch"
+    selected_messages = []
+
+    monkeypatch.setattr(
+        "chatenv.cli.resolve_interactive_mode",
+        _interactive_resolution,
+    )
+    monkeypatch.setattr(
+        "chatenv.cli.ask_select",
+        lambda message, choices: selected_messages.append(message) or UnitConfig,
+    )
+    monkeypatch.setattr(
+        "chatenv.cli.ask_text",
+        lambda prompt, default="", password=False: (
+            "secret" if "UNIT_KEY" in prompt else "from-init"
+        ),
+    )
+
+    result = runner.invoke(cli, ["--home", str(home), "init"])
+
+    assert result.exit_code == 0, result.output
+    assert selected_messages == ["Select one config type for init:"]
+    env_file = home / "envs" / "Unit" / ".env"
+    assert env_file.exists()
+    env_text = env_file.read_text(encoding="utf-8")
+    assert "UNIT_KEY='secret'" in env_text
+    assert "UNIT_VALUE='from-init'" in env_text
+
+
+def test_cli_help_uses_stable_command_order():
+    runner = CliRunner()
+
+    result = runner.invoke(cli, ["--help"])
+
+    assert result.exit_code == 0, result.output
+    command_lines = result.output.split("Commands:", 1)[1].splitlines()
+    commands = [
+        line.split()[0]
+        for line in command_lines
+        if line.startswith("  ") and line.strip()
+    ]
+    assert commands == [
+        "init",
+        "new",
+        "paste",
+        "use",
+        "list",
+        "cat",
+        "get",
+        "set",
+        "save",
+        "delete",
+        "test",
+    ]
+    assert "unset" not in commands

@@ -9,7 +9,7 @@ ChatEnv 提供：
 - `EnvField`：描述一个环境变量的 key、默认值、说明和敏感性；
 - `BaseEnvConfig`：typed schema 基类和自动 registry；
 - `EnvStore`：active `.env` 与 named profile 的读写；
-- `chatenv` CLI：`init/list/cat/new/save/use/delete/set/get/unset/test/paste`；
+- `chatenv` CLI：`init/new/paste/use/list/cat/get/set/save/delete/test`；
 - `chatenv.configs` entry point discovery：加载外部项目注册的 schema provider。
 
 业务项目负责：

@@ -291,6 +291,12 @@ def delete_env(ctx: click.Context, name: str | None, config_types: tuple[str, ..
     """Delete a named profile for one config type."""
     config_cls = _require_one(config_types, "delete")
     name = _resolve_profile_name(name=name, action="delete", interactive=interactive)
+    target = _store(ctx).profile_path(config_cls, name)
+    if not target.exists():
+        click.echo(f"Error: Profile '{name}' not found.", err=True)
+        return
+    if not yes and not ask_confirm(f"Delete {config_cls.get_storage_name()} profile '{target.name}'?", default=False):
+        raise click.Abort()
     try:
         target = _store(ctx).delete_profile(config_cls, name)
     except FileNotFoundError:

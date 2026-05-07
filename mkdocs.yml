@@ -1,0 +1,59 @@
+site_name: ChatEnv 文档
+site_url: https://chatarch.github.io/ChatEnv/
+repo_url: https://github.com/ChatArch/ChatEnv
+repo_name: ChatEnv
+edit_uri: edit/main/docs/
+
+theme:
+  name: material
+  palette:
+    primary: teal
+    accent: cyan
+  font:
+    text: Roboto
+    code: Roboto Mono
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - search.highlight
+    - search.share
+    - content.code.copy
+    - content.code.annotate
+
+plugins:
+  - search:
+      lang: zh
+  - minify:
+      minify_html: true
+
+markdown_extensions:
+  - admonition
+  - codehilite:
+      guess_lang: false
+  - toc:
+      permalink: true
+  - pymdownx.betterem:
+      smart_enable: all
+  - pymdownx.highlight:
+      use_pygments: true
+      pygments_style: friendly
+  - pymdownx.inlinehilite
+  - pymdownx.magiclink
+  - pymdownx.superfences
+  - pymdownx.tasklist:
+      custom_checkbox: true
+  - def_list
+  - attr_list
+  - md_in_html
+
+extra:
+  version:
+    provider: mike
+    default: latest
+    alias: true
+
+nav:
+  - 主页: index.md
+  - CLI: cli.md
+  - 设计: design.md
+  - 开发: development.md

@@ -112,6 +112,7 @@ store.save_active(ExampleConfig, {"EXAMPLE_API_KEY": "sk-..."})
 - `docs/cli.md`：CLI 用法
 - `docs/design.md`：路径、数据布局与注册策略
 - `docs/development.md`：测试、构建与发布
+- `mkdocs.yml`：Material for MkDocs 文档站点配置
 
 ## 开发
 
@@ -119,6 +120,8 @@ store.save_active(ExampleConfig, {"EXAMPLE_API_KEY": "sk-..."})
 python -m pytest -q
 python -m build
 python -m twine check dist/*
+python -m pip install -e .[docs]
+python -m mkdocs serve
 ```
 
 也可以用 ChatTool helper：

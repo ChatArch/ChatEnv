@@ -16,15 +16,24 @@ python -m pytest -q
 
 ```bash
 PYTHONPATH=src python -m chatenv.cli --help
-PYTHONPATH=src python -m chatenv.cli --home /tmp/chatenv-smoke paste --value "OPENAI_API_KEY='sk-xxx'" --yes
-PYTHONPATH=src python -m chatenv.cli --home /tmp/chatenv-smoke cat -t oai
+PYTHONPATH=src python -m chatenv.cli --home /tmp/chatenv-smoke list || true
 ```
+
+单独安装 `chatenv` 不内置业务 schema。需要测试 typed profile 写入时，应在业务项目里定义并导入自己的 `BaseEnvConfig` 子类后再调用通用命令。
 
 ## 构建校验
 
 ```bash
 python -m build
 python -m twine check dist/*
+```
+
+## 文档
+
+```bash
+pip install -e .[docs]
+mkdocs serve
+mkdocs build --strict
 ```
 
 或使用 ChatTool 的 PyPI helper：

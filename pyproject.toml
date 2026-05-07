@@ -5,12 +5,16 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "chatenv"
 dynamic = ["version"]
-description = "ChatTool Env"
+description = "ChatArch typed environment profile manager"
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 license = "MIT"
 authors = [{name = "rexwzh", email = "1073853456@qq.com"}]
-keywords = ["chatenv"]
+keywords = ["chatenv", "chatarch", "env"]
+dependencies = [
+    "click>=8.0",
+    "python-dotenv>=1.0",
+]
 classifiers = [
     "Programming Language :: Python :: 3",
     "Operating System :: OS Independent",
@@ -24,3 +28,6 @@ where = ["src"]
 
 [tool.setuptools]
 include-package-data = true
+
+[project.scripts]
+chatenv = "chatenv.cli:main"

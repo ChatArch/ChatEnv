@@ -33,3 +33,5 @@ store.save_active(ExampleConfig, {"EXAMPLE_API_KEY": "sk-..."})
 ```
 
 更多命令用法见 [CLI](cli.md)，整体边界见 [设计](design.md)。
+
+如果要在新的 `chatxxx` 项目里接入 ChatEnv，参考 [开发指南](developer-guide.md)。

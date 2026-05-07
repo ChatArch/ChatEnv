@@ -56,4 +56,5 @@ nav:
   - 主页: index.md
   - CLI: cli.md
   - 设计: design.md
-  - 开发: development.md
+  - 开发指南: developer-guide.md
+  - 仓库开发: development.md

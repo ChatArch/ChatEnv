@@ -52,8 +52,8 @@ chattool pypi check --project-dir .
 3. 推送匹配版本的 tag，例如：
 
 ```bash
-git tag v0.1.0
-git push origin v0.1.0
+git tag v0.1.1
+git push origin v0.1.1
 ```
 
 `publish.yml` 会校验 tag 与包版本一致，并在 PyPI 已存在相同版本时失败。

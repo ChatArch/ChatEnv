@@ -78,3 +78,27 @@ def test_cli_paste_active_and_cat(tmp_path):
     assert "sk-abcde" in cat.output
     assert "123456" in cat.output
     assert "abcdefghijklmnopqrstuvwxyz" not in cat.output
+
+
+def test_cli_delete_profile_requires_confirmation(tmp_path):
+    runner = CliRunner()
+    home = tmp_path / "arch"
+    store = EnvStore(home / "envs")
+    UnitConfig.load_from_sources(env_values={"UNIT_KEY": "secret", "UNIT_VALUE": "x"})
+    profile = store.save_profile(UnitConfig, "work")
+
+    declined = runner.invoke(
+        cli,
+        ["--home", str(home), "delete", "-t", "unit", "work"],
+        input="n\n",
+    )
+    assert declined.exit_code != 0
+    assert profile.exists()
+
+    confirmed = runner.invoke(
+        cli,
+        ["--home", str(home), "delete", "-t", "unit", "work"],
+        input="y\n",
+    )
+    assert confirmed.exit_code == 0, confirmed.output
+    assert not profile.exists()

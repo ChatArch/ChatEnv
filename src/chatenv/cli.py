@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import sys
+import os
 from pathlib import Path
 import click
 
@@ -14,8 +15,8 @@ from chatstyle import (
     ask_select,
     ask_text,
     create_choice,
-    resolve_command_inputs,
-    resolve_interactive_mode,
+    resolve_command_inputs as _chatstyle_resolve_command_inputs,
+    resolve_interactive_mode as _chatstyle_resolve_interactive_mode,
 )
 
 from .discovery import load_config_providers
@@ -51,6 +52,50 @@ TEST_TARGET_SCHEMA = CommandSchema(
     name="chatenv-test-target",
     fields=(CommandField("target", prompt="target", required=True),),
 )
+
+
+AUTO_PROMPT_ENV_VAR = "CHATARCH_AUTO_PROMPT"
+FALSE_VALUES = {"0", "false", "no", "off"}
+
+
+def auto_prompt_enabled() -> bool:
+    value = os.getenv(AUTO_PROMPT_ENV_VAR)
+    if value is None:
+        return True
+    return value.strip().lower() not in FALSE_VALUES
+
+
+def resolve_interactive_mode(
+    interactive,
+    *,
+    auto_prompt_condition,
+    respect_auto_prompt_env: bool = False,
+):
+    effective_auto_prompt_condition = auto_prompt_condition
+    if respect_auto_prompt_env:
+        effective_auto_prompt_condition = auto_prompt_condition and auto_prompt_enabled()
+    return _chatstyle_resolve_interactive_mode(
+        interactive,
+        auto_prompt_condition=effective_auto_prompt_condition,
+    )
+
+
+def _resolve_required_input_interactive_mode(interactive, *, auto_prompt_condition):
+    return resolve_interactive_mode(
+        interactive,
+        auto_prompt_condition=auto_prompt_condition,
+        respect_auto_prompt_env=True,
+    )
+
+
+def resolve_command_inputs(*, schema, provided, interactive, usage):
+    return _chatstyle_resolve_command_inputs(
+        schema=schema,
+        provided=provided,
+        interactive=interactive,
+        usage=usage,
+        interactive_resolver_override=_resolve_required_input_interactive_mode,
+    )
 
 
 COMMAND_ORDER = [
@@ -171,6 +216,7 @@ def _resolve_config_types_or_prompt(
     resolution = resolve_interactive_mode(
         interactive,
         auto_prompt_condition=needs_selection,
+        respect_auto_prompt_env=True,
     )
     abort_if_force_without_tty(
         resolution.force_interactive,
@@ -533,7 +579,11 @@ def _read_paste_text(value: str | None, read_stdin: bool, interactive: bool | No
         return value
     if read_stdin:
         return sys.stdin.read()
-    resolution = resolve_interactive_mode(interactive, auto_prompt_condition=True)
+    resolution = resolve_interactive_mode(
+        interactive,
+        auto_prompt_condition=True,
+        respect_auto_prompt_env=True,
+    )
     abort_if_force_without_tty(
         resolution.force_interactive,
         resolution.can_prompt,

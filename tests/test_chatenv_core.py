@@ -1,7 +1,7 @@
 from types import SimpleNamespace
 
 from click.testing import CliRunner
-
+import chatenv.cli as cli_module
 from chatenv.cli import cli
 from chatenv.fields import BaseEnvConfig, EnvField
 from chatenv.paste import parse_pasted_env_text
@@ -106,13 +106,117 @@ def test_cli_delete_profile_requires_confirmation(tmp_path):
     assert not profile.exists()
 
 
-def _interactive_resolution(interactive=None, *, auto_prompt_condition=True):
+def _interactive_resolution(interactive=None, *, auto_prompt_condition=True, **kwargs):
     return SimpleNamespace(
         interactive=interactive,
         can_prompt=True,
         force_interactive=interactive is True,
         need_prompt=True,
     )
+
+
+def _tty_resolution(interactive=None, *, auto_prompt_condition=True):
+    return SimpleNamespace(
+        interactive=interactive,
+        can_prompt=True,
+        force_interactive=interactive is True,
+        need_prompt=interactive is True or (interactive is None and auto_prompt_condition),
+    )
+
+
+def test_chatenv_auto_prompt_env_false_disables_implicit_prompt(monkeypatch):
+    monkeypatch.setenv("CHATARCH_AUTO_PROMPT", "false")
+    monkeypatch.setattr(
+        "chatenv.cli._chatstyle_resolve_interactive_mode",
+        _tty_resolution,
+    )
+
+    resolution = cli_module.resolve_interactive_mode(
+        None,
+        auto_prompt_condition=True,
+        respect_auto_prompt_env=True,
+    )
+
+    assert resolution.can_prompt is True
+    assert resolution.force_interactive is False
+    assert resolution.need_prompt is False
+
+
+def test_chatenv_auto_prompt_env_false_keeps_force_interactive(monkeypatch):
+    monkeypatch.setenv("CHATARCH_AUTO_PROMPT", "false")
+    monkeypatch.setattr(
+        "chatenv.cli._chatstyle_resolve_interactive_mode",
+        _tty_resolution,
+    )
+
+    resolution = cli_module.resolve_interactive_mode(
+        True,
+        auto_prompt_condition=True,
+        respect_auto_prompt_env=True,
+    )
+
+    assert resolution.force_interactive is True
+    assert resolution.need_prompt is True
+
+
+def test_cli_new_missing_type_errors_when_auto_prompt_disabled(
+    tmp_path, monkeypatch
+):
+    runner = CliRunner()
+    home = tmp_path / "arch"
+    monkeypatch.setenv("CHATARCH_AUTO_PROMPT", "false")
+    monkeypatch.setattr(
+        "chatenv.cli._chatstyle_resolve_interactive_mode",
+        _tty_resolution,
+    )
+
+    result = runner.invoke(cli, ["--home", str(home), "new", "work"])
+
+    assert result.exit_code != 0
+    assert "new requires --type/-t outside interactive mode" in result.output
+
+
+def test_cli_get_missing_key_errors_when_auto_prompt_disabled(
+    tmp_path, monkeypatch
+):
+    runner = CliRunner()
+    home = tmp_path / "arch"
+    monkeypatch.setenv("CHATARCH_AUTO_PROMPT", "false")
+    monkeypatch.setattr(
+        "chatenv.cli._chatstyle_resolve_interactive_mode",
+        _tty_resolution,
+    )
+
+    result = runner.invoke(cli, ["--home", str(home), "get"])
+
+    assert result.exit_code != 0
+    assert "key" in result.output.lower()
+    assert "required" in result.output.lower()
+
+
+def test_cli_init_with_type_still_prompts_fields_when_auto_prompt_disabled(
+    tmp_path, monkeypatch
+):
+    runner = CliRunner()
+    home = tmp_path / "arch"
+    monkeypatch.setenv("CHATARCH_AUTO_PROMPT", "false")
+    monkeypatch.setattr(
+        "chatenv.cli._chatstyle_resolve_interactive_mode",
+        _tty_resolution,
+    )
+    monkeypatch.setattr(
+        "chatenv.cli.ask_text",
+        lambda prompt, default="", password=False: (
+            "secret" if "UNIT_KEY" in prompt else "from-init"
+        ),
+    )
+
+    result = runner.invoke(cli, ["--home", str(home), "init", "-t", "unit"])
+
+    assert result.exit_code == 0, result.output
+    env_text = (home / "envs" / "Unit" / ".env").read_text(encoding="utf-8")
+    assert "UNIT_KEY='secret'" in env_text
+    assert "UNIT_VALUE='from-init'" in env_text
 
 
 def test_cli_new_prompts_for_config_type_when_type_missing(

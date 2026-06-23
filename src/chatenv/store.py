@@ -66,14 +66,39 @@ class EnvStore:
         target.unlink()
         return target
 
+    def _render_explicit_env_file(
+        self,
+        config_cls: type[BaseEnvConfig],
+        values: dict[str, Any],
+    ) -> str:
+        lines = [f"# Description: Env file for {config_cls._title}.", ""]
+        fields_by_key = {field.env_key: field for field in config_cls.get_fields().values()}
+        written: set[str] = set()
+        for field in config_cls.get_fields().values():
+            if field.env_key not in values:
+                continue
+            if field.desc:
+                lines.append(f"# {field.desc}")
+            lines.append(f"{field.env_key}='{values[field.env_key]}'")
+            lines.append("")
+            written.add(field.env_key)
+        for key, value in values.items():
+            if key in written or key in fields_by_key:
+                continue
+            lines.append(f"{key}='{value}'")
+            lines.append("")
+        return "\n".join(lines)
+
     def _save(
         self,
         config_cls: type[BaseEnvConfig],
         target_path: Path,
         values: dict[str, Any] | None = None,
     ) -> Path:
-        if values is not None:
-            config_cls.load_from_sources(env_values=values)
         target_path.parent.mkdir(parents=True, exist_ok=True)
-        target_path.write_text(config_cls.render_env_file(), encoding="utf-8")
+        if values is None:
+            content = config_cls.render_env_file()
+        else:
+            content = self._render_explicit_env_file(config_cls, values)
+        target_path.write_text(content, encoding="utf-8")
         return target_path

@@ -21,7 +21,7 @@ ChatArch typed env/profile runtime.
 
 </div>
 
-ChatEnv 是 ChatArch / chatxxx 系列项目共用的 typed env/profile 底层包。它只提供字段描述、配置基类、registry、路径、profile 文件读写、mask 和 paste 解析等通用能力；具体变量由 ChatTool、ChatDNS 等项目自己定义并注册。
+ChatEnv 是 ChatArch / chatxxx 系列项目共用的 typed env/profile 底层包。它提供字段描述、配置基类、registry、路径、profile 文件读写、mask 和 paste 解析等通用能力；同时内置少量跨工具共享 schema（当前为 OpenAI / Feishu）。工具私有变量仍由 ChatTool、ChatDNS 等项目自己定义并注册。
 
 当前设计保持减法：只使用一个根变量 `CHATARCH_HOME`，只管理 env/profile 文件，不额外创建 config/cache/data/state。
 
@@ -88,12 +88,13 @@ export CHATARCH_AUTO_PROMPT=false
 
 ## Paste
 
-`paste` 是跨设备复制密钥的核心入口。输入不要求是严格 dotenv 文件，会从终端日志、shell prompt、复制文本里提取已注册 key。
+`paste` 是跨设备复制密钥的核心入口。输入不要求是严格 dotenv 文件，会从终端日志、shell prompt、复制文本里提取已注册 key；同一行里用空格分隔的多个 `KEY='VALUE'` 片段也会被逐个识别。
 
 ```bash
 chatenv paste
 chatenv paste --stdin --profile work
 chatenv paste --value "EXAMPLE_API_KEY='sk-xxx'" --yes
+chatenv paste --value "EXAMPLE_MODEL='gpt example' EXAMPLE_API_KEY='sk-xxx'" --yes
 ```
 
 写入前会输出识别概要：识别到哪些类型、哪些 key、未知 key 被忽略。

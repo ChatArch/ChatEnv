@@ -3,6 +3,7 @@
 from .fields import BaseEnvConfig, EnvField
 from .paths import ChatArchPaths, get_paths
 from .store import EnvStore
+from .configs import FeishuConfig, OpenAIConfig
 from .discovery import get_provider_configs, get_provider_errors, load_config_providers
 
 __all__ = [
@@ -10,6 +11,8 @@ __all__ = [
     "ChatArchPaths",
     "EnvField",
     "EnvStore",
+    "FeishuConfig",
+    "OpenAIConfig",
     "get_provider_configs",
     "get_provider_errors",
     "get_paths",
@@ -17,4 +20,4 @@ __all__ = [
     "__version__",
 ]
 
-__version__ = "0.1.2"
+__version__ = "0.2.0"

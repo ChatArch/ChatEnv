@@ -36,7 +36,7 @@ chatenv get -i       # 仍然强制询问 key
 
 ## Schema 注册
 
-`chatenv` 命令基于已注册 schema 工作。ChatEnv 自身不内置业务变量；业务项目需要先定义并导入自己的 `BaseEnvConfig` 子类。
+`chatenv` 命令基于已注册 schema 工作。ChatEnv 内置少量 ChatArch 共享 schema（当前为 OpenAI / Feishu）；业务项目的私有变量仍应定义并注册自己的 `BaseEnvConfig` 子类。
 
 ```python
 from chatenv import BaseEnvConfig, EnvField
@@ -90,11 +90,12 @@ chatenv get EXAMPLE_API_KEY
 
 ## Paste
 
-`paste` 用于跨机器复制 typed env。输入不要求是严格 dotenv 文件，会从终端日志、shell prompt、复制文本里提取已注册 key。
+`paste` 用于跨机器复制 typed env。输入不要求是严格 dotenv 文件，会从终端日志、shell prompt、复制文本里提取已注册 key；同一行里用空格分隔的多个 `KEY='VALUE'` 片段也会被逐个识别。
 
 ```bash
 chatenv cat -t example --no-mask | chatenv paste --stdin --profile work --yes
 chatenv paste --value "EXAMPLE_API_KEY='sk-xxx'" --yes
+chatenv paste --value "EXAMPLE_MODEL='gpt example' EXAMPLE_API_KEY='sk-xxx'" --yes
 chatenv paste
 ```
 

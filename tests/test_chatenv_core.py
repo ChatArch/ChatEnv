@@ -3,6 +3,7 @@ from types import SimpleNamespace
 from click.testing import CliRunner
 import chatenv.cli as cli_module
 from chatenv.cli import cli
+from chatenv.configs import FeishuConfig, OpenAIConfig
 from chatenv.fields import BaseEnvConfig, EnvField
 from chatenv.paste import parse_pasted_env_text
 from chatenv.paths import get_paths
@@ -25,6 +26,78 @@ class RoundTripConfig(BaseEnvConfig):
 
     ROUNDTRIP_VALUE = EnvField("ROUNDTRIP_VALUE")
     ROUNDTRIP_URL = EnvField("ROUNDTRIP_URL")
+
+
+def test_builtin_shared_openai_and_feishu_configs_are_registered():
+    assert BaseEnvConfig.get_config_by_alias("openai") is OpenAIConfig
+    assert BaseEnvConfig.get_config_by_alias("oai") is OpenAIConfig
+    assert BaseEnvConfig.get_config_by_alias("feishu") is FeishuConfig
+    assert BaseEnvConfig.get_config_by_alias("lark") is FeishuConfig
+
+    assert OpenAIConfig.get_storage_name() == "OpenAI"
+    assert FeishuConfig.get_storage_name() == "Feishu"
+    assert "OPENAI_API_KEY" in [field.env_key for field in OpenAIConfig.get_fields().values()]
+    assert "FEISHU_APP_SECRET" in [field.env_key for field in FeishuConfig.get_fields().values()]
+
+
+def test_duplicate_logical_config_registration_is_skipped():
+    registry_before = list(BaseEnvConfig._registry)
+
+    class DuplicateOpenAIConfig(BaseEnvConfig):
+        _title = "Duplicate OpenAI Configuration"
+        _aliases = ["duplicate-openai"]
+        _storage_dir = "OpenAI"
+
+        DUPLICATE_OPENAI_KEY = EnvField("DUPLICATE_OPENAI_KEY")
+
+    assert DuplicateOpenAIConfig not in BaseEnvConfig._registry
+    assert getattr(DuplicateOpenAIConfig, "_duplicate_of") is OpenAIConfig
+    assert BaseEnvConfig.get_config_by_alias("openai") is OpenAIConfig
+    assert BaseEnvConfig.find_field("DUPLICATE_OPENAI_KEY") is None
+    assert BaseEnvConfig._registry == registry_before
+
+
+def test_cli_set_only_writes_the_requested_key(monkeypatch, tmp_path):
+    monkeypatch.setenv("OPENAI_API_KEY", "system-secret")
+    runner = CliRunner()
+    home = tmp_path / "arch"
+
+    result = runner.invoke(
+        cli,
+        ["--home", str(home), "set", "OPENAI_API_BASE=https://example.invalid/v1"],
+    )
+
+    assert result.exit_code == 0, result.output
+    env_text = (home / "envs" / "OpenAI" / ".env").read_text(encoding="utf-8")
+    assert "OPENAI_API_BASE='https://example.invalid/v1'" in env_text
+    assert "OPENAI_API_KEY" not in env_text
+
+
+def test_cli_paste_active_merges_file_values_without_system_env(monkeypatch, tmp_path):
+    monkeypatch.setenv("OPENAI_API_KEY", "system-secret")
+    runner = CliRunner()
+    home = tmp_path / "arch"
+    openai_active = home / "envs" / "OpenAI" / ".env"
+    openai_active.parent.mkdir(parents=True)
+    openai_active.write_text("OPENAI_API_BASE='https://old.example/v1'\n", encoding="utf-8")
+
+    result = runner.invoke(
+        cli,
+        [
+            "--home",
+            str(home),
+            "paste",
+            "--value",
+            "OPENAI_API_MODEL='gpt-test'",
+            "--yes",
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    env_text = openai_active.read_text(encoding="utf-8")
+    assert "OPENAI_API_BASE='https://old.example/v1'" in env_text
+    assert "OPENAI_API_MODEL='gpt-test'" in env_text
+    assert "OPENAI_API_KEY" not in env_text
 
 
 def test_paths_only_use_chatarch_home(monkeypatch, tmp_path):

@@ -38,14 +38,27 @@ class BaseEnvConfig:
     """Base class for typed env/profile schemas."""
 
     _registry: ClassVar[list[type["BaseEnvConfig"]]] = []
+    _registry_keys: ClassVar[dict[str, type["BaseEnvConfig"]]] = {}
     _title: ClassVar[str] = "Configuration"
     _aliases: ClassVar[list[str]] = []
     _storage_dir: ClassVar[str | None] = None
 
     def __init_subclass__(cls, **kwargs):
         super().__init_subclass__(**kwargs)
-        if cls not in BaseEnvConfig._registry:
-            BaseEnvConfig._registry.append(cls)
+        if cls in BaseEnvConfig._registry:
+            return
+        registry_key = cls.get_registry_key()
+        existing = BaseEnvConfig._registry_keys.get(registry_key)
+        if existing is not None:
+            setattr(cls, "_duplicate_of", existing)
+            return
+        BaseEnvConfig._registry.append(cls)
+        BaseEnvConfig._registry_keys[registry_key] = cls
+
+    @classmethod
+    def get_registry_key(cls) -> str:
+        """Return the logical registry key used for duplicate detection."""
+        return cls.get_storage_name().strip().lower()
 
     @classmethod
     def get_fields(cls) -> dict[str, EnvField]:

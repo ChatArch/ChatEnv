@@ -52,7 +52,7 @@ $CHATARCH_HOME/envs/
 ```toml
 [project]
 dependencies = [
-    "chatenv>=0.1.1",
+    "chatenv>=0.2.0,<0.3.0",
 ]
 ```
 
@@ -112,6 +112,17 @@ chatenv cat -t foo
 ```
 
 因此，ChatEnv CLI 拥有固定命令；业务项目只提供 schema provider。不要在每个项目里重复实现一套 env CLI。
+
+## 内置共享 schema
+
+ChatEnv 内置少量 ChatArch 生态中会被多个工具交叉引用的共享 schema：
+
+- `OpenAIConfig`：`OpenAI` / `oai` / `openai`
+- `FeishuConfig`：`Feishu` / `feishu` / `lark`
+
+这些 schema 可直接从 `chatenv.configs` 或 `chatenv` 导入。业务项目不要重复注册同一 logical config；若旧 provider 仍注册相同 `_storage_dir`，ChatEnv 会保留先注册的 canonical schema 并跳过重复注册。
+
+工具私有 schema 仍应留在各自包中，通过 `chatenv.configs` entry point 注册。
 
 ## 本地联调
 

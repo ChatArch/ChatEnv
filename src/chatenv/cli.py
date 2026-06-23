@@ -515,14 +515,14 @@ def set_env(ctx: click.Context, key_value: str | None, interactive: bool | None)
         click.echo("Error: Invalid format. Use KEY=VALUE", err=True)
         return
     key, value = key_value.split("=", 1)
-    _load_all(ctx)
     match = BaseEnvConfig.find_field(key.strip())
     if match is None:
         click.echo(f"Error: Key '{key.strip()}' not found", err=True)
         return
-    config_cls, _ = match
-    BaseEnvConfig.set(key.strip(), value.strip())
-    _write_active(ctx, config_cls)
+    config_cls, field = match
+    existing_values = _store(ctx).load_active(config_cls)
+    existing_values[field.env_key] = value.strip()
+    _store(ctx).save_active(config_cls, existing_values)
     click.echo(f"Set {key.strip()}={value.strip()}")
 
 
@@ -699,12 +699,15 @@ def paste_env(ctx: click.Context, value: str | None, read_stdin: bool, profile: 
         interactive,
     )
 
-    _load_all(ctx)
-    _apply_values(result.grouped)
     store = _store(ctx)
     click.echo("Written values:")
     for config_cls, values in result.grouped.items():
-        target = store.save_profile(config_cls, profile_name) if profile_name else store.save_active(config_cls)
+        if profile_name:
+            target = store.save_profile(config_cls, profile_name, values)
+        else:
+            existing_values = store.load_active(config_cls)
+            existing_values.update(values)
+            target = store.save_active(config_cls, existing_values)
         click.echo(f"- {config_cls.get_storage_name()}: {target}")
         for field, _ in iter_fields_for_values(config_cls, values):
             click.echo(f"  - {field.env_key}")

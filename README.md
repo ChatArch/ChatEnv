@@ -88,12 +88,13 @@ export CHATARCH_AUTO_PROMPT=false
 
 ## Paste
 
-`paste` 是跨设备复制密钥的核心入口。输入不要求是严格 dotenv 文件，会从终端日志、shell prompt、复制文本里提取已注册 key。
+`paste` 是跨设备复制密钥的核心入口。输入不要求是严格 dotenv 文件，会从终端日志、shell prompt、复制文本里提取已注册 key；同一行里用空格分隔的多个 `KEY='VALUE'` 片段也会被逐个识别。
 
 ```bash
 chatenv paste
 chatenv paste --stdin --profile work
 chatenv paste --value "EXAMPLE_API_KEY='sk-xxx'" --yes
+chatenv paste --value "EXAMPLE_MODEL='gpt example' EXAMPLE_API_KEY='sk-xxx'" --yes
 ```
 
 写入前会输出识别概要：识别到哪些类型、哪些 key、未知 key 被忽略。

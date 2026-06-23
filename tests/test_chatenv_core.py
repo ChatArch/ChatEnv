@@ -1,6 +1,8 @@
+from pathlib import Path
 from types import SimpleNamespace
 
 from click.testing import CliRunner
+import chatenv.discovery as discovery_module
 import chatenv.cli as cli_module
 from chatenv.cli import cli
 from chatenv.configs import FeishuConfig, OpenAIConfig
@@ -55,6 +57,48 @@ def test_duplicate_logical_config_registration_is_skipped():
     assert BaseEnvConfig.get_config_by_alias("openai") is OpenAIConfig
     assert BaseEnvConfig.find_field("DUPLICATE_OPENAI_KEY") is None
     assert BaseEnvConfig._registry == registry_before
+
+
+def test_duplicate_provider_config_does_not_pollute_registry(monkeypatch):
+    registry_before = list(BaseEnvConfig._registry)
+    provider_configs_before = discovery_module.get_provider_configs()
+
+    class FakeEntryPoint:
+        name = "legacy-chattool"
+        value = "legacy_chattool.config"
+
+        def load(self):
+            class LegacyFeishuConfig(BaseEnvConfig):
+                _title = "Legacy Feishu Configuration"
+                _aliases = ["legacy-feishu"]
+                _storage_dir = "Feishu"
+
+                LEGACY_FEISHU_ONLY = EnvField("LEGACY_FEISHU_ONLY")
+
+            return LegacyFeishuConfig
+
+    monkeypatch.setattr(discovery_module, "_iter_entry_points", lambda: [FakeEntryPoint()])
+
+    results = discovery_module.load_config_providers(force=True)
+
+    assert len(results) == 1
+    assert results[0].loaded is True
+    assert results[0].configs == ()
+    assert BaseEnvConfig._registry == registry_before
+    assert BaseEnvConfig.get_config_by_alias("feishu") is FeishuConfig
+    assert BaseEnvConfig.find_field("LEGACY_FEISHU_ONLY") is None
+
+    discovery_module._provider_configs.clear()
+    discovery_module._provider_configs.update(provider_configs_before)
+
+
+def test_chatarch_internal_dependencies_have_upper_bounds():
+    pyproject_text = (Path(__file__).resolve().parents[1] / "pyproject.toml").read_text(
+        encoding="utf-8"
+    )
+
+    assert '"chatstyle>=0.1.0,<0.2.0"' in pyproject_text
+    assert '"chatstyle>=0.1.0"' not in pyproject_text
 
 
 def test_cli_set_only_writes_the_requested_key(monkeypatch, tmp_path):

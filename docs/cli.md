@@ -36,7 +36,7 @@ chatenv get -i       # 仍然强制询问 key
 
 ## Schema 注册
 
-`chatenv` 命令基于已注册 schema 工作。ChatEnv 自身不内置业务变量；业务项目需要先定义并导入自己的 `BaseEnvConfig` 子类。
+`chatenv` 命令基于已注册 schema 工作。ChatEnv 内置少量 ChatArch 共享 schema（当前为 OpenAI / Feishu）；业务项目的私有变量仍应定义并注册自己的 `BaseEnvConfig` 子类。
 
 ```python
 from chatenv import BaseEnvConfig, EnvField

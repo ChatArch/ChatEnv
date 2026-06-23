@@ -21,7 +21,7 @@ ChatArch typed env/profile runtime.
 
 </div>
 
-ChatEnv 是 ChatArch / chatxxx 系列项目共用的 typed env/profile 底层包。它只提供字段描述、配置基类、registry、路径、profile 文件读写、mask 和 paste 解析等通用能力；具体变量由 ChatTool、ChatDNS 等项目自己定义并注册。
+ChatEnv 是 ChatArch / chatxxx 系列项目共用的 typed env/profile 底层包。它提供字段描述、配置基类、registry、路径、profile 文件读写、mask 和 paste 解析等通用能力；同时内置少量跨工具共享 schema（当前为 OpenAI / Feishu）。工具私有变量仍由 ChatTool、ChatDNS 等项目自己定义并注册。
 
 当前设计保持减法：只使用一个根变量 `CHATARCH_HOME`，只管理 env/profile 文件，不额外创建 config/cache/data/state。
 

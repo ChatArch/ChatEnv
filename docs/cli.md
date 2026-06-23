@@ -18,6 +18,22 @@ $CHATARCH_HOME/envs/
 chatenv --home /tmp/chatarch cat -t example
 ```
 
+## 交互策略
+
+缺少必要命令参数时，ChatEnv 默认会在可交互终端中自动补问。例如缺少 profile name、key，或命令需要唯一 config type 但未传 `-t/--type` 时，会进入补参流程。
+
+- `-i`：显式强制交互补问。
+- `-I`：显式禁用交互补问，缺必要参数时报错。
+- `CHATARCH_AUTO_PROMPT=false`：关闭默认自动补问；不影响显式 `-i`，也不影响必要参数已经足够的命令。
+
+可识别的 false 值为 `false`、`0`、`no`、`off`：
+
+```bash
+export CHATARCH_AUTO_PROMPT=false
+chatenv get          # 直接报错，不自动询问 key
+chatenv get -i       # 仍然强制询问 key
+```
+
 ## Schema 注册
 
 `chatenv` 命令基于已注册 schema 工作。ChatEnv 自身不内置业务变量；业务项目需要先定义并导入自己的 `BaseEnvConfig` 子类。

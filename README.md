@@ -76,6 +76,14 @@ chatenv delete -t example work
 chatenv --home /tmp/chatarch cat -t example
 ```
 
+缺少必要命令参数时，ChatEnv 默认会在可交互终端中自动补问；显式 `-i` 始终强制补问，`-I` 始终禁用补问。自动化环境可设置：
+
+```bash
+export CHATARCH_AUTO_PROMPT=false
+```
+
+此时只有缺少必要参数的命令会直接报错；参数已经足够的命令行为不变。
+
 更多用法见 `docs/cli.md`。
 
 ## Paste

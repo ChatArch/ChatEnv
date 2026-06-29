@@ -60,6 +60,8 @@ $CHATARCH_HOME/envs/
 
 ```bash
 chatenv init -t example
+chatenv status
+chatenv status --detail
 chatenv cat -t example
 chatenv cat -t example --no-mask | chatenv paste --stdin --profile work --yes
 chatenv set EXAMPLE_API_KEY=sk-xxx

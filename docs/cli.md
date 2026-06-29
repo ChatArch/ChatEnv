@@ -62,6 +62,9 @@ chatenv init -t example -i    # 初始化前逐项补问
 ```bash
 chatenv list                  # 按类型列出 named profiles
 chatenv list -t example
+chatenv status                # 列出当前 Python 环境已注册的平台/schema
+chatenv status --detail       # 展开每个平台的变量、敏感性、默认值和 provider 来源
+chatenv status -t example --detail
 chatenv cat                   # 输出所有 active values，敏感值默认打码
 chatenv cat -t example
 chatenv cat -t example work   # 输出 Example/work.env

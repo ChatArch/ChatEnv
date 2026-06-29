@@ -4,6 +4,8 @@ ChatEnv 是 ChatArch / chatxxx 系列项目共用的 typed env/profile 底层包
 
 它只提供字段描述、配置基类、registry、路径、profile 文件读写、mask 和 paste 解析等通用能力；具体变量由 ChatTool、ChatDNS 等项目自己定义并注册。
 
+`chatenv status` 可以查看当前 Python 环境已注册的平台/schema；`chatenv status --detail` 会展开变量清单并标明每个变量来自哪个 provider 包。
+
 ## 最小路径
 
 ```text

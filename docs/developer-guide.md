@@ -147,11 +147,14 @@ PY
 验证 CLI：
 
 ```bash
+chatenv status --detail
 chatenv list
 chatenv init -t foo -i
 chatenv cat -t foo
 chatenv test -t foo
 ```
+
+`chatenv status --detail` 会按 platform/schema 展示变量清单，并在 platform 行和每个变量行标出 `provider=<entry-point-package>`；内置共享 schema 的 provider 显示为 `chatenv`。
 
 如果 provider 加载失败，可打开 debug 输出：
 

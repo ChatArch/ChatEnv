@@ -19,7 +19,8 @@ from chatstyle import (
     resolve_interactive_mode as _chatstyle_resolve_interactive_mode,
 )
 
-from .discovery import load_config_providers
+from . import __version__
+from .discovery import get_provider_errors, load_config_providers
 from .fields import BaseEnvConfig, EnvField, normalize_profile_name
 from .paste import iter_fields_for_values, parse_pasted_env_text
 from .paths import get_paths
@@ -104,6 +105,7 @@ COMMAND_ORDER = [
     "paste",
     "use",
     "list",
+    "status",
     "cat",
     "get",
     "set",
@@ -122,6 +124,7 @@ class OrderedGroup(click.Group):
 
 
 @click.group(name="chatenv", cls=OrderedGroup)
+@click.version_option(__version__, prog_name="chatenv")
 @click.option("--home", type=click.Path(file_okay=False, path_type=Path), help="Override CHATARCH_HOME for this command.")
 @click.pass_context
 def cli(ctx: click.Context, home: Path | None):
@@ -185,6 +188,43 @@ def _available_config_types_message() -> str:
     for config_cls in _ordered_config_classes():
         lines.append(f"  - {_config_choice_title(config_cls)}")
     return "\n".join(lines)
+
+
+def _provider_name(config_cls: type[BaseEnvConfig]) -> str:
+    return str(getattr(config_cls, "_provider", config_cls.__module__.split(".", 1)[0]))
+
+
+def _status_config_line(config_cls: type[BaseEnvConfig], store: EnvStore) -> str:
+    aliases = ",".join(getattr(config_cls, "_aliases", [])) or "-"
+    profiles = store.list_profiles(config_cls)
+    active_marker = "yes" if store.active_path(config_cls).exists() else "no"
+    return (
+        f"- {config_cls.get_storage_name()} | title={config_cls._title} | "
+        f"provider={_provider_name(config_cls)} | aliases={aliases} | "
+        f"fields={len(config_cls.get_fields())} | active={active_marker} | profiles={len(profiles)}"
+    )
+
+
+def _status_field_line(config_cls: type[BaseEnvConfig], field_name: str, field: EnvField) -> str:
+    value_set = field.value not in (None, "")
+    default = field.default
+    if field.is_sensitive and default not in (None, ""):
+        default_text = mask_secret(str(default))
+    else:
+        default_text = "" if default is None else str(default)
+    parts = [
+        f"  - {field.env_key}",
+        f"name={field_name}",
+        f"provider={_provider_name(config_cls)}",
+    ]
+    if field.desc:
+        parts.append(f"desc={field.desc}")
+    if default_text:
+        parts.append(f"default={default_text}")
+    if field.is_sensitive:
+        parts.append("sensitive=yes")
+    parts.append(f"configured={'yes' if value_set else 'no'}")
+    return " | ".join(parts)
 
 
 def _select_config_interactive(
@@ -358,6 +398,35 @@ def list_env(ctx: click.Context, config_types: tuple[str, ...]):
             click.echo(f"- {profile}.env")
     if not found:
         click.echo(f"No profiles found under {_envs_dir(ctx)}")
+
+
+@cli.command(name="status")
+@click.option("--type", "config_types", "-t", multiple=True, help="Filter config types.")
+@click.option("--detail", is_flag=True, help="Show each registered variable and its provider package.")
+@click.pass_context
+def status_env(ctx: click.Context, config_types: tuple[str, ...], detail: bool):
+    """Show registered config platforms and provider ownership."""
+    store = _store(ctx)
+    configs = _matched_or_all(config_types)
+    _ensure_registered()
+    if config_types and not configs:
+        raise click.ClickException(f"No configuration types matched: {', '.join(config_types)}")
+    _load_all(ctx)
+    click.echo(f"Registered config platforms: {len(configs)}")
+    for index, config_cls in enumerate(configs):
+        if index:
+            click.echo("")
+        click.echo(_status_config_line(config_cls, store))
+        if not detail:
+            continue
+        for field_name, field in config_cls.get_fields().items():
+            click.echo(_status_field_line(config_cls, field_name, field))
+    errors = get_provider_errors()
+    if errors:
+        click.echo("")
+        click.echo(f"Provider load errors: {len(errors)}")
+        for provider, exc in errors.items():
+            click.echo(f"- {provider}: {exc}")
 
 
 @cli.command(name="cat")

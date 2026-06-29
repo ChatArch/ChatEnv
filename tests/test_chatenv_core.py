@@ -101,6 +101,37 @@ def test_chatarch_internal_dependencies_have_upper_bounds():
     assert '"chatstyle>=0.1.0"' not in pyproject_text
 
 
+def test_status_lists_registered_platforms_and_provider_detail(tmp_path):
+    runner = CliRunner()
+    home = tmp_path / "arch"
+    result = runner.invoke(cli, ["--home", str(home), "status", "--type", "unit", "--detail"])
+
+    assert result.exit_code == 0, result.output
+    assert "Registered config platforms: 1" in result.output
+    assert "Unit | title=Unit Configuration" in result.output
+    assert "provider=" in result.output
+    assert "UNIT_KEY" in result.output
+    assert "sensitive=yes" in result.output
+    assert "UNIT_VALUE" in result.output
+    assert "default=default" in result.output
+
+
+def test_status_reports_provider_name_from_loaded_package(tmp_path):
+    previous = getattr(UnitConfig, "_provider", None)
+    setattr(UnitConfig, "_provider", "chatunit")
+    try:
+        result = CliRunner().invoke(cli, ["--home", str(tmp_path / "arch"), "status", "--type", "unit", "--detail"])
+    finally:
+        if previous is None:
+            delattr(UnitConfig, "_provider")
+        else:
+            setattr(UnitConfig, "_provider", previous)
+
+    assert result.exit_code == 0, result.output
+    assert "provider=chatunit" in result.output
+    assert "UNIT_KEY | name=UNIT_KEY | provider=chatunit" in result.output
+
+
 def test_cli_set_only_writes_the_requested_key(monkeypatch, tmp_path):
     monkeypatch.setenv("OPENAI_API_KEY", "system-secret")
     runner = CliRunner()
@@ -548,6 +579,7 @@ def test_cli_help_uses_stable_command_order():
         "paste",
         "use",
         "list",
+        "status",
         "cat",
         "get",
         "set",

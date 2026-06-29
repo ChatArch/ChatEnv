@@ -19,6 +19,7 @@ from chatstyle import (
     resolve_interactive_mode as _chatstyle_resolve_interactive_mode,
 )
 
+from . import __version__
 from .discovery import get_provider_errors, load_config_providers
 from .fields import BaseEnvConfig, EnvField, normalize_profile_name
 from .paste import iter_fields_for_values, parse_pasted_env_text
@@ -123,6 +124,7 @@ class OrderedGroup(click.Group):
 
 
 @click.group(name="chatenv", cls=OrderedGroup)
+@click.version_option(__version__, prog_name="chatenv")
 @click.option("--home", type=click.Path(file_okay=False, path_type=Path), help="Override CHATARCH_HOME for this command.")
 @click.pass_context
 def cli(ctx: click.Context, home: Path | None):

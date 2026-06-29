@@ -59,6 +59,7 @@ $CHATARCH_HOME/envs/
 `chatenv` CLI 基于已注册 schema 工作。单独安装且没有项目注册 schema 时，它会提示需要先注册配置类型。业务项目通常会在自己的 CLI 中导入 schema 后复用这些能力。
 
 ```bash
+chatenv --version
 chatenv init -t example
 chatenv status
 chatenv status --detail

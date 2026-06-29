@@ -60,6 +60,7 @@ chatenv init -t example -i    # 初始化前逐项补问
 ## 查看
 
 ```bash
+chatenv --version             # 查看当前 chatenv 版本
 chatenv list                  # 按类型列出 named profiles
 chatenv list -t example
 chatenv status                # 列出当前 Python 环境已注册的平台/schema

@@ -381,7 +381,7 @@ def init_env(ctx: click.Context, config_types: tuple[str, ...], interactive: boo
 @click.option("--type", "config_types", "-t", multiple=True, help="Filter config types.")
 @click.pass_context
 def list_env(ctx: click.Context, config_types: tuple[str, ...]):
-    """List available named profiles grouped by config type."""
+    """List active default and named profiles grouped by config type."""
     store = _store(ctx)
     configs = _matched_or_all(config_types)
     _ensure_registered()
@@ -390,10 +390,13 @@ def list_env(ctx: click.Context, config_types: tuple[str, ...]):
     found = False
     for config_cls in configs:
         profiles = store.list_profiles(config_cls)
-        if not profiles:
+        has_default = store.active_path(config_cls).exists()
+        if not has_default and not profiles:
             continue
         found = True
         click.echo(f"[{config_cls.get_storage_name()}]")
+        if has_default:
+            click.echo("- .env [default]")
         for profile in profiles:
             click.echo(f"- {profile}.env")
     if not found:

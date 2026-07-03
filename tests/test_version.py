@@ -4,7 +4,7 @@ from click.testing import CliRunner
 
 
 def test_version_present():
-    assert __version__ == "0.2.1"
+    assert __version__ == "0.2.2"
 
 
 def test_cli_version_option():

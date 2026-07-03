@@ -92,13 +92,17 @@ def test_duplicate_provider_config_does_not_pollute_registry(monkeypatch):
     discovery_module._provider_configs.update(provider_configs_before)
 
 
-def test_chatarch_internal_dependencies_have_upper_bounds():
+def test_runtime_dependencies_use_reviewed_latest_windows():
     pyproject_text = (Path(__file__).resolve().parents[1] / "pyproject.toml").read_text(
         encoding="utf-8"
     )
 
     assert '"chatstyle>=0.1.0,<0.2.0"' in pyproject_text
+    assert '"click>=8.4.2,<9.0"' in pyproject_text
+    assert '"python-dotenv>=1.2.2,<2.0"' in pyproject_text
     assert '"chatstyle>=0.1.0"' not in pyproject_text
+    assert '"click>=8.0"' not in pyproject_text
+    assert '"python-dotenv>=1.0"' not in pyproject_text
 
 
 def test_status_lists_registered_platforms_and_provider_detail(tmp_path):
@@ -174,6 +178,47 @@ def test_cli_paste_active_merges_file_values_without_system_env(monkeypatch, tmp
     assert "OPENAI_API_MODEL='gpt-test'" in env_text
     assert "OPENAI_API_KEY" not in env_text
 
+
+
+
+def test_list_marks_active_default_profile(tmp_path):
+    runner = CliRunner()
+    home = tmp_path / "arch"
+    store = EnvStore(home / "envs")
+    store.save_active(UnitConfig, {"UNIT_VALUE": "active"})
+    store.save_profile(UnitConfig, "work", {"UNIT_VALUE": "named"})
+
+    result = runner.invoke(cli, ["--home", str(home), "list", "--type", "unit"])
+
+    assert result.exit_code == 0, result.output
+    assert "[Unit]" in result.output
+    assert "- .env [default]" in result.output
+    assert "- work.env" in result.output
+
+
+
+def test_list_keeps_named_only_profiles_without_default_marker(tmp_path):
+    runner = CliRunner()
+    home = tmp_path / "arch"
+    store = EnvStore(home / "envs")
+    store.save_profile(UnitConfig, "work", {"UNIT_VALUE": "named"})
+
+    result = runner.invoke(cli, ["--home", str(home), "list", "--type", "unit"])
+
+    assert result.exit_code == 0, result.output
+    assert "[Unit]" in result.output
+    assert "- .env [default]" not in result.output
+    assert "- work.env" in result.output
+
+def test_list_reports_no_profiles_when_active_and_named_profiles_absent(tmp_path):
+    runner = CliRunner()
+    home = tmp_path / "arch"
+    (home / "envs" / "Unit").mkdir(parents=True)
+
+    result = runner.invoke(cli, ["--home", str(home), "list", "--type", "unit"])
+
+    assert result.exit_code == 0, result.output
+    assert "No profiles found under" in result.output
 
 def test_paths_only_use_chatarch_home(monkeypatch, tmp_path):
     monkeypatch.setenv("CHATARCH_HOME", str(tmp_path / "arch"))

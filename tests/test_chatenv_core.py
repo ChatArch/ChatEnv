@@ -210,6 +210,21 @@ def test_list_keeps_named_only_profiles_without_default_marker(tmp_path):
     assert "- .env [default]" not in result.output
     assert "- work.env" in result.output
 
+
+def test_list_hides_default_only_active_profile_by_default(tmp_path):
+    runner = CliRunner()
+    home = tmp_path / "arch"
+    store = EnvStore(home / "envs")
+    store.save_active(UnitConfig, {"UNIT_KEY": "", "UNIT_VALUE": "default"})
+
+    result = runner.invoke(cli, ["--home", str(home), "list", "--type", "unit"])
+
+    assert result.exit_code == 0, result.output
+    assert "No profiles found under" in result.output
+    assert "[Unit]" not in result.output
+    assert "- .env [default]" not in result.output
+
+
 def test_list_reports_no_profiles_when_active_and_named_profiles_absent(tmp_path):
     runner = CliRunner()
     home = tmp_path / "arch"
@@ -528,6 +543,24 @@ def test_cli_init_with_type_still_prompts_fields_when_auto_prompt_disabled(
     env_text = (home / "envs" / "Unit" / ".env").read_text(encoding="utf-8")
     assert "UNIT_KEY='secret'" in env_text
     assert "UNIT_VALUE='from-init'" in env_text
+
+
+def test_cli_init_without_type_fails_outside_interactive_without_writing_all(
+    tmp_path, monkeypatch
+):
+    runner = CliRunner()
+    home = tmp_path / "arch"
+    monkeypatch.setenv("CHATARCH_AUTO_PROMPT", "false")
+    monkeypatch.setattr(
+        "chatenv.cli._chatstyle_resolve_interactive_mode",
+        _tty_resolution,
+    )
+
+    result = runner.invoke(cli, ["--home", str(home), "init", "-I"])
+
+    assert result.exit_code != 0
+    assert "init requires --type/-t outside interactive mode" in result.output
+    assert not (home / "envs").exists()
 
 
 def test_cli_new_prompts_for_config_type_when_type_missing(

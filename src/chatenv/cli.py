@@ -277,7 +277,9 @@ def _resolve_config_types_or_prompt(
         return [_select_config_interactive(action=action, configs=selectable)]
 
     if not config_types and allow_multi:
-        return list(BaseEnvConfig._registry)
+        raise click.ClickException(
+            f"{action} requires --type/-t outside interactive mode.\n{_available_config_types_message()}"
+        )
     if not config_types:
         raise click.ClickException(
             f"{action} requires --type/-t outside interactive mode.\n{_available_config_types_message()}"
@@ -377,6 +379,23 @@ def init_env(ctx: click.Context, config_types: tuple[str, ...], interactive: boo
     click.echo(f"Configuration saved to {_envs_dir(ctx)}")
 
 
+def _has_configured_values(config_cls: type[BaseEnvConfig], values: dict[str, str]) -> bool:
+    """Return true when a profile has values beyond blanks and schema defaults."""
+    fields_by_key = {field.env_key: field for field in config_cls.get_fields().values()}
+    for key, value in values.items():
+        field = fields_by_key.get(key)
+        if field is None:
+            if value:
+                return True
+            continue
+        if value == "":
+            continue
+        if field.default is not None and str(field.default) == str(value):
+            continue
+        return True
+    return False
+
+
 @cli.command(name="list")
 @click.option("--type", "config_types", "-t", multiple=True, help="Filter config types.")
 @click.pass_context
@@ -390,12 +409,14 @@ def list_env(ctx: click.Context, config_types: tuple[str, ...]):
     found = False
     for config_cls in configs:
         profiles = store.list_profiles(config_cls)
-        has_default = store.active_path(config_cls).exists()
-        if not has_default and not profiles:
+        active_path = store.active_path(config_cls)
+        has_default = active_path.exists()
+        show_default = has_default and _has_configured_values(config_cls, store.load_active(config_cls))
+        if not show_default and not profiles:
             continue
         found = True
         click.echo(f"[{config_cls.get_storage_name()}]")
-        if has_default:
+        if show_default:
             click.echo("- .env [default]")
         for profile in profiles:
             click.echo(f"- {profile}.env")

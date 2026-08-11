@@ -8,7 +8,8 @@ ChatEnv 是 ChatArch / chatxxx 系列项目的 typed env/profile 底层模块。
 
 ```text
 CHATARCH_HOME=${CHATARCH_HOME:-~/.chatarch}
-$CHATARCH_HOME/envs/
+$CHATARCH_HOME/envs/      # stable typed env/profile files
+$CHATARCH_HOME/tokens/    # generated runtime token/session files
 ```
 
 不新增以下状态面：
@@ -18,7 +19,7 @@ $CHATARCH_HOME/envs/
 - data/state 目录；
 - 细分路径环境变量。
 
-ChatEnv 只负责 env/profile 存储规则，不负责业务工具自己的普通配置和缓存。
+ChatEnv 只负责 env/profile 和 runtime token-store 的存储规则，不负责业务工具自己的普通配置和缓存。`tokens/` 不是第二个手工维护 secret 文件层；它只保存由服务登录/refresh hook 生成的运行态。
 
 ## 数据布局
 
@@ -58,12 +59,14 @@ class ExampleConfig(BaseEnvConfig):
 ## 分层
 
 ```text
-chatenv.paths       # CHATARCH_HOME 与 envs_dir
+chatenv.paths       # CHATARCH_HOME 与 envs_dir/tokens_dir
 chatenv.fields      # EnvField / BaseEnvConfig
 chatenv.registry    # type / alias 解析
 chatenv.store       # profile 文件读写
+chatenv.tokens      # opaque runtime token-store 原子写入与 safe metadata
+chatenv.token_refreshers  # service-owned refresh hook discovery/invocation
 chatenv.paste       # 宽松 paste parser
-chatenv.discovery   # entry point provider 加载
+chatenv.discovery   # config entry point provider 加载
 chatenv.cli         # click CLI / 可复用 command handler
 ```
 

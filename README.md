@@ -38,7 +38,8 @@ pip install -e .[dev]       # 仓库开发
 
 ```text
 CHATARCH_HOME=${CHATARCH_HOME:-~/.chatarch}
-$CHATARCH_HOME/envs/
+$CHATARCH_HOME/envs/      # stable typed env/profile files
+$CHATARCH_HOME/tokens/    # generated runtime tokens/sessions, parallel to env profiles
 ```
 
 实际布局由业务项目注册的 schema 决定，例如：
@@ -91,6 +92,17 @@ export CHATARCH_AUTO_PROMPT=false
 `chatenv --tree` 可从当前安装包的 Click 注册表实时输出完整命令树，用于验收和脚本 readback。
 
 更多用法见 `docs/cli.md`。
+
+## Runtime tokens
+
+ChatEnv 区分 stable env/profile 和动态 runtime token：
+
+- `envs/<Service>/<profile>.env` 保存可长期维护的稳定配置，例如 base URL、账号、API key 或 refresh/login 所需输入；
+- `tokens/<Service>/<profile>.json` 保存由登录或刷新流程生成的 access token、session、cookie/CSRF 等运行态；
+- `chatenv token refresh SERVICE PROFILE` 会调用服务包通过 `chatenv.token_refreshers` 注册的刷新器，自动生成并更新 token-store；
+- 手工 JSON 写入只保留为显式 `chatenv token import ... --stdin/--file`，用于迁移、调试或外部刷新器交接，不应作为日常维护入口。
+
+ChatEnv 只负责路径、profile 校验、原子写入和 safe status/list/clear；具体登录、OAuth refresh、cookie 刷新等业务语义仍由 leaf package 负责。
 
 ## Paste
 

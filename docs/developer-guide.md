@@ -9,16 +9,19 @@ ChatEnv 提供：
 - `EnvField`：描述一个环境变量的 key、默认值、说明和敏感性；
 - `BaseEnvConfig`：typed schema 基类和自动 registry；
 - `EnvStore`：active `.env` 与 named profile 的读写；
-- `chatenv` CLI：`init/new/paste/use/list/cat/get/set/save/delete/test`；
-- `chatenv.configs` entry point discovery：加载外部项目注册的 schema provider。
+- `TokenStore`：按 `tokens/<Service>/<profile>.json` 原子保存动态 token/session，status/list 不输出 raw values；
+- `chatenv` CLI：`init/new/paste/use/list/cat/get/set/save/delete/test` 与 `token status/refresh/import/list/clear`；
+- `chatenv.configs` entry point discovery：加载外部项目注册的 schema provider；
+- `chatenv.token_refreshers` entry point discovery：让服务包注册“从 stable env/profile 自动刷新 runtime token”的 hook。
 
 业务项目负责：
 
 - 定义自己的 `BaseEnvConfig` 子类；
 - 给 schema 设置 `_aliases` 和 `_storage_dir`；
 - 在 `pyproject.toml` 注册 `chatenv.configs` entry point；
+- 如需 runtime token/session，提供登录或 refresh 函数，并可注册 `chatenv.token_refreshers` entry point；
 - 如需验证服务可用性，在 schema 类里实现 `test()`；
-- 不在 ChatEnv 中加入具体业务变量。
+- 不在 ChatEnv 中加入具体业务变量或业务 token 语义。
 
 ## 目录约定
 
@@ -31,7 +34,8 @@ export CHATARCH_HOME=~/.chatarch
 env/profile 数据固定放在：
 
 ```text
-$CHATARCH_HOME/envs/
+$CHATARCH_HOME/envs/      # stable typed env/profile files
+$CHATARCH_HOME/tokens/    # generated runtime token/session files
 ```
 
 例如 `ExampleConfig._storage_dir = "Example"` 时：
@@ -85,6 +89,37 @@ chatfoo = "chatfoo.config"
 ```
 
 安装 `chatfoo` 后，运行 `chatenv` 时会加载 `chatfoo.config`。模块 import 后，`FooConfig(BaseEnvConfig)` 会通过 `BaseEnvConfig.__init_subclass__` 自动进入 registry。
+
+## Runtime token refresh provider
+
+如果业务项目需要 access token、web session、cookie/CSRF 等运行态，stable env/profile 应保存可再认证/可刷新所需配置；runtime token 应由登录或 refresh 函数生成，不应让用户手工维护 token JSON。
+
+业务项目可注册 refresh hook：
+
+```toml
+[project.entry-points."chatenv.token_refreshers"]
+Foo = "chatfoo.tokens:refresh_chatenv_token"
+```
+
+函数接收 keyword-only 上下文并返回 `TokenRefreshResult` 或同形 mapping：
+
+```python
+from chatenv import TokenRefreshResult
+
+
+def refresh_chatenv_token(*, service, profile, home, env_store, token_store):
+    # 1. 从 env_store / 业务 config 读取 envs/Foo/<profile>.env 的稳定配置
+    # 2. 调用业务登录/refresh API 获取新的运行态 token/session
+    # 3. 只返回 opaque values + safe summary；不要 print raw token/cookie
+    return TokenRefreshResult(
+        values={"access_token": "[REDACTED]"},
+        token_type="oauth_access_token",
+        summary={"account": "operator", "base_url": "https://foo.example"},
+        expires_at="2026-08-11T23:00:00Z",
+    )
+```
+
+用户执行 `chatenv token refresh Foo work` 时，ChatEnv 调用该 hook 并写入 `tokens/Foo/work.json`。`chatenv token import` 只用于迁移或外部刷新器交接，是显式 import，不是日常 refresh 入口。
 
 ## CLI 如何找到 schema
 

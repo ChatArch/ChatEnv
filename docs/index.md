@@ -10,10 +10,11 @@ ChatEnv 是 ChatArch / chatxxx 系列项目共用的 typed env/profile 底层包
 
 ```text
 CHATARCH_HOME=${CHATARCH_HOME:-~/.chatarch}
-$CHATARCH_HOME/envs/
+$CHATARCH_HOME/envs/      # stable typed env/profile files
+$CHATARCH_HOME/tokens/    # generated runtime tokens/sessions
 ```
 
-本包不额外管理 config/cache/data/state，也不保留 ChatTool 旧路径 fallback。
+本包不额外管理 config/cache/data/state，也不保留 ChatTool 旧路径 fallback；`tokens/` 只用于由服务登录/刷新流程生成的运行态 token/session，不是第二个手工维护 env 层。
 
 ## 快速示例
 

@@ -2,6 +2,14 @@
 
 本项目按版本记录对用户可见的 CLI、运行时和发布流程变更。
 
+## 0.2.8 - 2026-08-12
+
+- 将文档站点迁移到 ChatArch docs custom domain：`https://arch.gh.wzhecnu.cn/ChatEnv/`，并补齐 suffix-mode i18n 英文页面。
+- 增加 MkDocs Material emoji renderer baseline 和生成站点 literal `:material-` gate。
+- 强化 CI 为 Linux Python 3.10/3.11/3.12 matrix，并增加 installed `chatenv --version` / `chatenv --tree` smoke。
+- 强化 PyPI Trusted Publishing workflow：tag 必须匹配包版本，release commit 必须是 `origin/main` ancestor，且使用 GitHub OIDC 发布。
+- README / docs 同步真实 `chatenv --tree`，并移除旧 GitHub Pages 域名入口。
+
 ## 0.2.7 - 2026-08-11
 
 - 新增 `chatenv.token_refreshers` provider hook：服务包可通过 `chatenv.token_refreshers` entry point 注册 refresh 函数，由 `chatenv token refresh SERVICE PROFILE` 调用并把返回的 opaque runtime values 写入 token-store。
@@ -21,6 +29,6 @@
 ## 0.2.4 - 2026-08-11
 
 - 新增顶层 `chatenv --tree`，从 Click 注册命令树生成当前命令面，包含 `--help`、`--version`、`--tree`、`--home` 和所有已注册命令的一行用途说明。
-- 为 `--tree` 增加 CLI 合约测试，锁住 `init/new/paste/use/list/status/cat/get/set/save/delete/test` 等真实命令面，并确保没有模板 `hello` 泄漏。
+- 为 `--tree` 增加 CLI 合约测试，锁住 `init/new/paste/use/list/status/cat/get/set/save/delete/test` 等真实命令面，并确保没有脚手架示例命令泄漏。
 - 将发布 workflow 从 Twine secret 上传迁移为 PyPI Trusted Publisher / GitHub OIDC；该项目的 PyPI Publisher 使用 `(Any)` environment，因此 workflow 不设置 GitHub environment。
 - 收紧 MkDocs docs extras 上界，并补充 package URLs 的文档/仓库元数据。

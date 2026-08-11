@@ -17,15 +17,15 @@
 
 # ChatEnv
 
-ChatArch typed env/profile runtime.
+Typed env/profile runtime for ChatArch packages.
 
 </div>
 
-ChatEnv 是 ChatArch / chatxxx 系列项目共用的 typed env/profile 底层包。它提供字段描述、配置基类、registry、路径、profile 文件读写、mask、paste 解析，以及 runtime token-store 的通用能力；具体业务变量、登录刷新和连通性语义由各项目自己定义并注册。
+ChatEnv is the shared typed env/profile layer for ChatArch packages. It provides field descriptors, config base classes, registry discovery, paths, profile file IO, masking, paste parsing, and the runtime token-store. Service-specific variables, login refresh, and connectivity semantics stay in leaf packages.
 
-文档入口：https://arch.gh.wzhecnu.cn/ChatEnv/
+Documentation: https://arch.gh.wzhecnu.cn/ChatEnv/en/
 
-## 安装
+## Install
 
 ```bash
 pip install chatenv --upgrade
@@ -33,9 +33,9 @@ chatenv --version
 chatenv --tree
 ```
 
-支持 Python `>=3.10`。
+Python `>=3.10` is supported.
 
-## 目录
+## Layout
 
 ```text
 CHATARCH_HOME=${CHATARCH_HOME:-~/.chatarch}
@@ -43,11 +43,11 @@ $CHATARCH_HOME/envs/      # stable typed env/profile files
 $CHATARCH_HOME/tokens/    # generated runtime tokens/sessions, parallel to env profiles
 ```
 
-ChatEnv 只负责 stable env/profile 与 runtime token-store 的存储规则，不额外创建 config/cache/data/state，也不把 `tokens/` 当作第二个手工维护 secret/env 层。
+ChatEnv manages only stable env/profile files and runtime token-store files. It does not create extra config/cache/data/state surfaces, and `tokens/` is not a second manually maintained secret/env layer.
 
-## CLI 树
+## CLI tree
 
-`chatenv --tree` 从当前安装包的 Click 注册表实时输出完整命令面：
+`chatenv --tree` renders the live Click command registry:
 
 ```text
 chatenv [--home <HOME>]  # Manage typed env profiles under $CHATARCH_HOME/envs.
@@ -74,7 +74,7 @@ chatenv [--home <HOME>]  # Manage typed env profiles under $CHATARCH_HOME/envs.
 └── test [--target <TARGET>] [--interactive/--no-interactive]  # Test a registered configuration schema.
 ```
 
-## 常用命令
+## Common commands
 
 ```bash
 chatenv init -t example
@@ -87,7 +87,7 @@ chatenv token refresh PyPI RexWzh
 chatenv token status PyPI RexWzh
 ```
 
-敏感值默认 mask；`token status/list/clear` 只输出 safe metadata，不输出 raw token/cookie/CSRF values。
+Sensitive values are masked by default. `token status/list/clear` prints safe metadata only and never prints raw token/cookie/CSRF values.
 
 ## Python API
 
@@ -106,15 +106,15 @@ store = EnvStore(paths.envs_dir)
 store.save_active(ExampleConfig, {"EXAMPLE_API_KEY": "sk-..."})
 ```
 
-## 文档
+## Docs
 
-- https://arch.gh.wzhecnu.cn/ChatEnv/
-- `docs/cli.md`：CLI 用法
-- `docs/design.md`：路径、数据布局与注册策略
-- `docs/developer-guide.md`：chatxxx 项目接入和 provider 开发指南
-- `docs/development.md`：测试、构建与发布
+- https://arch.gh.wzhecnu.cn/ChatEnv/en/
+- `docs/cli.en.md`: CLI usage
+- `docs/design.en.md`: layout and registry design
+- `docs/developer-guide.en.md`: integration guide for chatxxx packages
+- `docs/development.en.md`: testing, build, and release
 
-## 开发
+## Development
 
 ```bash
 python -m pip install -e .[dev,docs]
@@ -124,6 +124,6 @@ python -m build
 python -m twine check dist/*
 ```
 
-## 开源协议
+## License
 
 MIT License

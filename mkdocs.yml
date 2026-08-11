@@ -1,11 +1,13 @@
 site_name: ChatEnv 文档
-site_url: https://chatarch.github.io/ChatEnv/
+site_url: https://arch.gh.wzhecnu.cn/ChatEnv/
 repo_url: https://github.com/ChatArch/ChatEnv
-repo_name: ChatEnv
+repo_name: ChatArch/ChatEnv
 edit_uri: edit/main/docs/
+docs_dir: docs/
 
 theme:
   name: material
+  language: zh
   palette:
     primary: teal
     accent: cyan
@@ -23,6 +25,27 @@ theme:
 plugins:
   - search:
       lang: zh
+  - i18n:
+      docs_structure: suffix
+      fallback_to_default: true
+      reconfigure_material: true
+      reconfigure_search: true
+      languages:
+        - locale: zh
+          default: true
+          name: 中文
+          build: true
+          site_name: ChatEnv 文档
+        - locale: en
+          name: English
+          build: true
+          site_name: ChatEnv Documentation
+          nav_translations:
+            主页: Home
+            CLI: CLI
+            设计: Design
+            开发指南: Developer Guide
+            仓库开发: Repository Development
   - minify:
       minify_html: true
 
@@ -42,15 +65,21 @@ markdown_extensions:
   - pymdownx.superfences
   - pymdownx.tasklist:
       custom_checkbox: true
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
   - def_list
   - attr_list
   - md_in_html
 
 extra:
-  version:
-    provider: mike
-    default: latest
-    alias: true
+  alternate:
+    - name: 中文
+      link: /ChatEnv/
+      lang: zh
+    - name: English
+      link: /ChatEnv/en/
+      lang: en
 
 nav:
   - 主页: index.md

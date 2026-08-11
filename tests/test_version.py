@@ -4,7 +4,7 @@ from click.testing import CliRunner
 
 
 def test_version_present():
-    assert __version__ == "0.2.4"
+    assert __version__ == "0.2.5"
 
 
 def test_cli_version_option():
@@ -35,6 +35,11 @@ def test_tree_option_renders_registered_command_surface():
     assert "├── use [NAME]" in result.output
     assert "├── list" in result.output
     assert "├── status" in result.output
+    assert "├── token" in result.output
+    assert "│   ├── refresh" in result.output
+    assert "│   ├── status" in result.output
+    assert "│   ├── list" in result.output
+    assert "│   └── clear" in result.output
     assert "├── cat [NAME]" in result.output
     assert "├── get [KEY]" in result.output
     assert "├── set [KEY-VALUE]" in result.output

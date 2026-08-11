@@ -13,6 +13,10 @@ class ChatArchPaths:
     def envs_dir(self) -> Path:
         return self.home_dir / "envs"
 
+    @property
+    def tokens_dir(self) -> Path:
+        return self.home_dir / "tokens"
+
 
 def _expand_path(value: str | Path) -> Path:
     return Path(value).expanduser().resolve()

@@ -60,6 +60,7 @@ $CHATARCH_HOME/envs/
 
 ```bash
 chatenv --version
+chatenv --tree
 chatenv init -t example
 chatenv status
 chatenv status --detail
@@ -86,6 +87,8 @@ export CHATARCH_AUTO_PROMPT=false
 ```
 
 此时只有缺少必要参数的命令会直接报错；参数已经足够的命令行为不变。
+
+`chatenv --tree` 可从当前安装包的 Click 注册表实时输出完整命令树，用于验收和脚本 readback。
 
 更多用法见 `docs/cli.md`。
 

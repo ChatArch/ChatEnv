@@ -2,6 +2,12 @@
 
 本项目按版本记录对用户可见的 CLI、运行时和发布流程变更。
 
+## 0.2.5 - 2026-08-11
+
+- 新增通用 runtime token-store API：`chatenv.TokenStore` / `chatenv.tokens.TokenStore`，按 `tokens/<Service>/<profile>.json` 管理动态 token/session JSON。
+- 新增 `chatenv token refresh|status|list|clear` 通用 CLI；CLI 只输出 token 文件、profile、类型、时间戳和调用方传入的 safe summary，不输出 raw token/cookie/CSRF values。
+- 新增 `ChatArchPaths.tokens_dir`，让 env profile 与 token profile 在同一 ChatArch home 下保持一一对应。
+
 ## 0.2.4 - 2026-08-11
 
 - 新增顶层 `chatenv --tree`，从 Click 注册命令树生成当前命令面，包含 `--help`、`--version`、`--tree`、`--home` 和所有已注册命令的一行用途说明。

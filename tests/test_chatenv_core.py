@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -240,6 +241,57 @@ def test_paths_only_use_chatarch_home(monkeypatch, tmp_path):
     paths = get_paths()
     assert paths.home_dir == (tmp_path / "arch").resolve()
     assert paths.envs_dir == (tmp_path / "arch" / "envs").resolve()
+    assert paths.tokens_dir == (tmp_path / "arch" / "tokens").resolve()
+
+
+def test_token_store_roundtrip_keeps_profile_parallel_to_env_without_exposing_values(tmp_path):
+    from chatenv.tokens import TokenStore
+
+    home = tmp_path / "arch"
+    store = TokenStore(home=home)
+
+    saved = store.write(
+        "CRS",
+        "admin",
+        values={"access_token": "opaque-value-a", "cookie": "opaque-value-b"},
+        token_type="admin_session",
+        summary={"base_url": "https://crs.example.test", "username": "operator"},
+    )
+
+    assert saved["service"] == "CRS"
+    assert saved["profile"] == "admin"
+    assert saved["token_present"] is True
+    assert saved["token_file"] == str(home / "tokens" / "CRS" / "admin.json")
+    assert "opaque-value-a" not in json.dumps(saved)
+
+    assert store.read("CRS", "admin")["values"] == {
+        "access_token": "opaque-value-a",
+        "cookie": "opaque-value-b",
+    }
+    status = store.status("CRS", "admin")
+    assert status["summary"] == {"base_url": "https://crs.example.test", "username": "operator"}
+    assert "opaque-value-a" not in json.dumps(status)
+    assert "opaque-value-b" not in json.dumps(status)
+
+
+def test_token_store_list_and_clear_are_generic(tmp_path):
+    from chatenv.tokens import TokenStore
+
+    store = TokenStore(home=tmp_path / "arch")
+    store.write("PyPI", "RexWzh", values={"session": "opaque-value-a"}, token_type="web_session")
+    store.write("CRS", "admin", values={"access_token": "opaque-value-b"}, token_type="admin_session")
+
+    all_tokens = store.list_tokens()
+    assert [(item["service"], item["profile"]) for item in all_tokens] == [("CRS", "admin"), ("PyPI", "RexWzh")]
+    assert store.list_tokens("PyPI")[0]["profile"] == "RexWzh"
+
+    dry_run = store.clear("PyPI", "RexWzh", execute=False)
+    assert dry_run["would_delete"].endswith("tokens/PyPI/RexWzh.json")
+    assert store.status("PyPI", "RexWzh")["token_present"] is True
+
+    removed = store.clear("PyPI", "RexWzh", execute=True)
+    assert removed["deleted"] is True
+    assert store.status("PyPI", "RexWzh")["token_present"] is False
 
 
 def test_store_profile_roundtrip(tmp_path):
@@ -606,6 +658,69 @@ def test_cli_new_bad_type_shows_available_types_outside_interactive(tmp_path):
     assert "Unit (unit)" in result.output
 
 
+def test_cli_token_refresh_status_list_and_clear_hide_values(tmp_path):
+    runner = CliRunner()
+    home = tmp_path / "arch"
+    token_json = json.dumps({"access_token": "opaque-value-a", "cookie": "opaque-value-b"})
+
+    refreshed = runner.invoke(
+        cli,
+        [
+            "--home",
+            str(home),
+            "token",
+            "refresh",
+            "PyPI",
+            "RexWzh",
+            "--token-type",
+            "web_session",
+            "--summary",
+            "username=RexWzh",
+            "--summary",
+            "base_url=https://pypi.org",
+            "--stdin",
+            "--format",
+            "json",
+        ],
+        input=token_json,
+    )
+
+    assert refreshed.exit_code == 0, refreshed.output
+    assert '"token_present": true' in refreshed.output
+    assert '"token_file"' in refreshed.output
+    assert "opaque-value-a" not in refreshed.output
+    assert "opaque-value-b" not in refreshed.output
+    assert (home / "tokens" / "PyPI" / "RexWzh.json").exists()
+
+    status = runner.invoke(
+        cli,
+        ["--home", str(home), "token", "status", "PyPI", "RexWzh", "--format", "json"],
+    )
+    assert status.exit_code == 0, status.output
+    assert '"profile": "RexWzh"' in status.output
+    assert '"username": "RexWzh"' in status.output
+    assert "opaque-value-a" not in status.output
+
+    listed = runner.invoke(cli, ["--home", str(home), "token", "list", "PyPI"])
+    assert listed.exit_code == 0, listed.output
+    assert "[PyPI]" in listed.output
+    assert "- RexWzh.json" in listed.output
+    assert "opaque-value-a" not in listed.output
+
+    dry_run = runner.invoke(cli, ["--home", str(home), "token", "clear", "PyPI", "RexWzh"])
+    assert dry_run.exit_code == 0, dry_run.output
+    assert "would_delete=" in dry_run.output
+    assert (home / "tokens" / "PyPI" / "RexWzh.json").exists()
+
+    cleared = runner.invoke(
+        cli,
+        ["--home", str(home), "token", "clear", "PyPI", "RexWzh", "--execute", "--format", "json"],
+    )
+    assert cleared.exit_code == 0, cleared.output
+    assert '"deleted": true' in cleared.output
+    assert not (home / "tokens" / "PyPI" / "RexWzh.json").exists()
+
+
 def test_cli_init_prompts_for_config_type_when_type_missing(
     tmp_path, monkeypatch
 ):
@@ -658,6 +773,7 @@ def test_cli_help_uses_stable_command_order():
         "use",
         "list",
         "status",
+        "token",
         "cat",
         "get",
         "set",

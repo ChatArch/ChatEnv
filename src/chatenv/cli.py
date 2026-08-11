@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import sys
 import os
 from pathlib import Path
@@ -26,6 +27,7 @@ from .paste import iter_fields_for_values, parse_pasted_env_text
 from .paths import get_paths
 from .registry import resolve_config_types
 from .store import EnvStore
+from .tokens import TokenStore
 from .utils import mask_secret
 
 
@@ -106,6 +108,7 @@ COMMAND_ORDER = [
     "use",
     "list",
     "status",
+    "token",
     "cat",
     "get",
     "set",
@@ -116,11 +119,17 @@ COMMAND_ORDER = [
 
 
 class OrderedGroup(click.Group):
+    command_order = COMMAND_ORDER
+
     def list_commands(self, ctx: click.Context) -> list[str]:
         commands = set(self.commands)
-        ordered = [name for name in COMMAND_ORDER if name in commands]
+        ordered = [name for name in self.command_order if name in commands]
         ordered.extend(sorted(commands.difference(ordered)))
         return ordered
+
+
+class TokenCommandGroup(OrderedGroup):
+    command_order = ["status", "refresh", "list", "clear"]
 
 
 def _format_metavar(name: str) -> str:
@@ -234,7 +243,11 @@ def cli(ctx: click.Context, home: Path | None):
     """Manage typed env profiles under $CHATARCH_HOME/envs."""
     load_config_providers()
     paths = get_paths(home)
-    ctx.obj = {"paths": paths, "store": EnvStore(paths.envs_dir)}
+    ctx.obj = {
+        "paths": paths,
+        "store": EnvStore(paths.envs_dir),
+        "token_store": TokenStore(tokens_dir=paths.tokens_dir),
+    }
 
 
 def _store(ctx: click.Context) -> EnvStore:
@@ -243,6 +256,14 @@ def _store(ctx: click.Context) -> EnvStore:
 
 def _envs_dir(ctx: click.Context) -> Path:
     return ctx.obj["paths"].envs_dir
+
+
+def _token_store(ctx: click.Context) -> TokenStore:
+    return ctx.obj["token_store"]
+
+
+def _tokens_dir(ctx: click.Context) -> Path:
+    return ctx.obj["paths"].tokens_dir
 
 
 def _matched_or_all(config_types: tuple[str, ...]) -> list[type[BaseEnvConfig]]:
@@ -554,6 +575,159 @@ def status_env(ctx: click.Context, config_types: tuple[str, ...], detail: bool):
         click.echo(f"Provider load errors: {len(errors)}")
         for provider, exc in errors.items():
             click.echo(f"- {provider}: {exc}")
+
+
+@cli.group(name="token", cls=TokenCommandGroup)
+def token_group():
+    """Manage generic runtime token profiles."""
+    pass
+
+
+def _echo_json(payload: object) -> None:
+    click.echo(json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True))
+
+
+def _parse_summary(items: tuple[str, ...]) -> dict[str, str]:
+    summary: dict[str, str] = {}
+    for item in items:
+        if "=" not in item:
+            raise click.ClickException("--summary values must use KEY=VALUE format.")
+        key, value = item.split("=", 1)
+        key = key.strip()
+        if not key:
+            raise click.ClickException("--summary key cannot be blank.")
+        summary[key] = value.strip()
+    return summary
+
+
+def _render_token_status(payload: dict[str, object]) -> None:
+    for key in (
+        "service",
+        "profile",
+        "token_type",
+        "token_file",
+        "token_file_exists",
+        "token_present",
+        "created_at",
+        "updated_at",
+        "expires_at",
+        "source",
+    ):
+        value = payload.get(key)
+        if value not in (None, ""):
+            click.echo(f"{key}={value}")
+    summary = payload.get("summary")
+    if isinstance(summary, dict) and summary:
+        click.echo("summary:")
+        for key in sorted(summary):
+            click.echo(f"- {key}={summary[key]}")
+
+
+def _read_token_values(*, read_stdin: bool, value_file: Path | None) -> dict[str, object]:
+    if read_stdin == bool(value_file):
+        raise click.ClickException("token refresh requires exactly one of --stdin or --file.")
+    text = sys.stdin.read() if read_stdin else value_file.read_text(encoding="utf-8")  # type: ignore[union-attr]
+    try:
+        payload = json.loads(text)
+    except json.JSONDecodeError as exc:
+        raise click.ClickException(f"token payload must be a JSON object: {exc}") from exc
+    if not isinstance(payload, dict) or not payload:
+        raise click.ClickException("token payload must be a non-empty JSON object.")
+    return payload
+
+
+@token_group.command(name="refresh")
+@click.argument("service")
+@click.argument("profile", required=False, default="default")
+@click.option("--stdin", "read_stdin", is_flag=True, help="Read token JSON object from stdin.")
+@click.option("--file", "value_file", type=click.Path(dir_okay=False, path_type=Path), help="Read token JSON object from a file.")
+@click.option("--token-type", default="runtime", show_default=True, help="Caller-defined token/session type.")
+@click.option("--summary", multiple=True, help="Safe status field in KEY=VALUE form. Values are printed by status/list.")
+@click.option("--expires-at", default="", help="Optional caller-provided expiry timestamp.")
+@click.option("--format", "output_format", type=click.Choice(["text", "json"]), default="text", show_default=True)
+@click.pass_context
+def token_refresh(
+    ctx: click.Context,
+    service: str,
+    profile: str,
+    read_stdin: bool,
+    value_file: Path | None,
+    token_type: str,
+    summary: tuple[str, ...],
+    expires_at: str,
+    output_format: str,
+):
+    """Write refreshed generic runtime token JSON for SERVICE/PROFILE."""
+    values = _read_token_values(read_stdin=read_stdin, value_file=value_file)
+    payload = _token_store(ctx).write(
+        service,
+        profile,
+        values=values,
+        token_type=token_type,
+        summary=_parse_summary(summary),
+        expires_at=expires_at,
+        source="refresh",
+    )
+    if output_format == "json":
+        _echo_json(payload)
+    else:
+        _render_token_status(payload)
+
+
+@token_group.command(name="status")
+@click.argument("service")
+@click.argument("profile", required=False, default="default")
+@click.option("--format", "output_format", type=click.Choice(["text", "json"]), default="text", show_default=True)
+@click.pass_context
+def token_status(ctx: click.Context, service: str, profile: str, output_format: str):
+    """Show safe runtime token metadata for SERVICE/PROFILE."""
+    payload = _token_store(ctx).status(service, profile)
+    if output_format == "json":
+        _echo_json(payload)
+    else:
+        _render_token_status(payload)
+
+
+@token_group.command(name="list")
+@click.argument("service", required=False)
+@click.option("--format", "output_format", type=click.Choice(["text", "json"]), default="text", show_default=True)
+@click.pass_context
+def token_list(ctx: click.Context, service: str | None, output_format: str):
+    """List runtime token profiles grouped by service."""
+    payload = _token_store(ctx).list_tokens(service)
+    if output_format == "json":
+        _echo_json(payload)
+        return
+    if not payload:
+        click.echo(f"No tokens found under {_tokens_dir(ctx)}")
+        return
+    current_service = None
+    for item in payload:
+        service_name = str(item["service"])
+        if service_name != current_service:
+            if current_service is not None:
+                click.echo("")
+            click.echo(f"[{service_name}]")
+            current_service = service_name
+        suffix = " [present]" if item.get("token_present") else ""
+        click.echo(f"- {item['profile']}.json{suffix}")
+
+
+@token_group.command(name="clear")
+@click.argument("service")
+@click.argument("profile", required=False, default="default")
+@click.option("--execute", is_flag=True, help="Actually delete the token file. Omit for a dry run.")
+@click.option("--format", "output_format", type=click.Choice(["text", "json"]), default="text", show_default=True)
+@click.pass_context
+def token_clear(ctx: click.Context, service: str, profile: str, execute: bool, output_format: str):
+    """Clear a generic runtime token file for SERVICE/PROFILE."""
+    payload = _token_store(ctx).clear(service, profile, execute=execute)
+    if output_format == "json":
+        _echo_json(payload)
+    else:
+        for key, value in payload.items():
+            if value not in (None, ""):
+                click.echo(f"{key}={value}")
 
 
 @cli.command(name="cat")

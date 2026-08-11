@@ -36,12 +36,32 @@ def _safe_segment(value: str, *, default: str) -> str:
     return cleaned or default
 
 
+def _strict_token_profile_segment(value: str | None) -> str:
+    if value is None:
+        return DEFAULT_PROFILE
+    raw = str(value)
+    stripped = raw.strip()
+    if not stripped:
+        raise ValueError("token profile must not be empty")
+    if stripped != raw:
+        raise ValueError("token profile must not contain leading or trailing whitespace")
+    if stripped in {".", ".."}:
+        raise ValueError("token profile must not be '.' or '..'")
+    if "/" in stripped or "\\" in stripped:
+        raise ValueError("token profile must be a single path segment")
+    if re.search(r"[^A-Za-z0-9_.-]", stripped):
+        raise ValueError("token profile may contain only letters, numbers, dot, underscore, and hyphen")
+    if stripped.strip(".-") != stripped:
+        raise ValueError("token profile must not start or end with dot or hyphen")
+    return stripped
+
+
 def normalize_service_name(value: str) -> str:
     return _safe_segment(value, default="Service")
 
 
 def normalize_token_profile(value: str | None) -> str:
-    return _safe_segment(value or DEFAULT_PROFILE, default=DEFAULT_PROFILE)
+    return _strict_token_profile_segment(value)
 
 
 def _coerce_mapping(value: dict[str, Any] | None) -> dict[str, Any]:

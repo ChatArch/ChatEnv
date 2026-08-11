@@ -105,6 +105,34 @@ chatenv paste
 ```
 
 写入前会输出识别概要：识别到哪些类型、哪些 key、未知 key 被忽略。
+
+## Runtime tokens
+
+Token-store 是运行态，不是另一个手工维护 env 文件。日常刷新应由服务包注册 refresh provider 后执行：
+
+```bash
+chatenv token refresh PyPI RexWzh
+chatenv token status PyPI RexWzh
+chatenv token list PyPI
+chatenv token clear PyPI RexWzh        # dry-run
+chatenv token clear PyPI RexWzh --execute
+```
+
+服务包通过 `pyproject.toml` 注册：
+
+```toml
+[project.entry-points."chatenv.token_refreshers"]
+PyPI = "chatpypi.session_ops:refresh_chatenv_token"
+```
+
+刷新函数返回 `chatenv.TokenRefreshResult` 或同形 mapping；ChatEnv 负责写入 `tokens/<Service>/<profile>.json` 并只输出 safe metadata。若确实需要迁移或接入外部刷新器，可显式导入：
+
+```bash
+external-refresh-command | chatenv token import PyPI RexWzh --stdin --token-type web_session
+```
+
+`token import` 是显式交接入口，不代表 ChatEnv 推荐用户手工维护 token JSON。
+
 ## 命令树 / Readback
 
 `chatenv --tree` 从当前安装包的 Click 注册表实时生成命令树，适合发布验收、文档校对和自动化 readback。
@@ -120,6 +148,12 @@ chatenv [--home <HOME>]  # Manage typed env profiles under $CHATARCH_HOME/envs.
 ├── use [NAME] [--type <CONFIG-TYPES>] [--interactive/--no-interactive]  # Activate a named profile for one config type.
 ├── list [--type <CONFIG-TYPES>]  # List active default and named profiles grouped by config type.
 ├── status [--type <CONFIG-TYPES>] [--detail]  # Show registered config platforms and provider ownership.
+├── token  # Manage generic runtime token profiles.
+│   ├── status <SERVICE> [PROFILE] [--format <OUTPUT-FORMAT>]  # Show safe runtime token metadata for SERVICE/PROFILE.
+│   ├── refresh <SERVICE> [PROFILE] [--format <OUTPUT-FORMAT>]  # Refresh SERVICE/PROFILE through a registered service refresh provider.
+│   ├── import <SERVICE> [PROFILE] [--stdin] [--file <VALUE-FILE>] [--token-type <TOKEN-TYPE>] [--summary <SUMMARY>] [--expires-at <EXPIRES-AT>] [--format <OUTPUT-FORMAT>]  # Explicitly import externally refreshed runtime token JSON.
+│   ├── list [SERVICE] [--format <OUTPUT-FORMAT>]  # List runtime token profiles grouped by service.
+│   └── clear <SERVICE> [PROFILE] [--execute] [--format <OUTPUT-FORMAT>]  # Clear a generic runtime token file for SERVICE/PROFILE.
 ├── cat [NAME] [--no-mask] [--type <CONFIG-TYPES>]  # Print active values, or a named typed profile with -t TYPE NAME.
 ├── get [KEY] [--interactive/--no-interactive]  # Get a configuration value from active typed env files.
 ├── set [KEY-VALUE] [--interactive/--no-interactive]  # Set a configuration value in the matching active typed env file.

@@ -337,6 +337,105 @@ def test_token_cli_reports_invalid_profile_without_aliasing(tmp_path):
     assert "Traceback" not in result.output
 
 
+def test_token_refresh_uses_registered_provider_not_manual_json(monkeypatch, tmp_path):
+    from chatenv import token_refreshers as refresh_module
+    from chatenv.token_refreshers import TokenRefreshResult
+    from chatenv.tokens import TokenStore
+
+    runner = CliRunner()
+    home = tmp_path / "arch"
+    calls = []
+
+    def refresh(**kwargs):
+        calls.append(kwargs)
+        assert kwargs["service"] == "PyPI"
+        assert kwargs["profile"] == "RexWzh"
+        assert kwargs["home"] == home
+        return TokenRefreshResult(
+            values={"session": "opaque-value"},
+            token_type="web_session",
+            summary={"username": "operator"},
+            expires_at="2026-08-11T23:00:00Z",
+        )
+
+    class FakeEntryPoint:
+        name = "PyPI"
+        value = "tests.fake:refresh"
+
+        def load(self):
+            return refresh
+
+    monkeypatch.setattr(refresh_module, "_iter_refresh_entry_points", lambda: [FakeEntryPoint()])
+    refresh_module.clear_token_refreshers()
+
+    result = runner.invoke(
+        cli,
+        ["--home", str(home), "token", "refresh", "PyPI", "RexWzh", "--format", "json"],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert len(calls) == 1
+    payload = json.loads(result.output)
+    assert payload["service"] == "PyPI"
+    assert payload["profile"] == "RexWzh"
+    assert payload["token_type"] == "web_session"
+    assert payload["source"] == "refresh"
+    assert payload["summary"] == {"username": "operator"}
+    assert "opaque-value" not in result.output
+    assert TokenStore(home=home).read("PyPI", "RexWzh")["values"] == {"session": "opaque-value"}
+
+
+def test_token_refresh_without_provider_does_not_accept_manual_payload(monkeypatch, tmp_path):
+    from chatenv import token_refreshers as refresh_module
+
+    runner = CliRunner()
+    home = tmp_path / "arch"
+    monkeypatch.setattr(refresh_module, "_iter_refresh_entry_points", lambda: [])
+    refresh_module.clear_token_refreshers()
+
+    result = runner.invoke(
+        cli,
+        ["--home", str(home), "token", "refresh", "PyPI", "RexWzh", "--format", "json"],
+    )
+
+    assert result.exit_code != 0
+    assert "No token refresh provider registered for PyPI" in result.output
+    assert not (home / "tokens" / "PyPI" / "RexWzh.json").exists()
+
+
+def test_token_import_is_explicit_manual_json_path(tmp_path):
+    from chatenv.tokens import TokenStore
+
+    runner = CliRunner()
+    home = tmp_path / "arch"
+    result = runner.invoke(
+        cli,
+        [
+            "--home",
+            str(home),
+            "token",
+            "import",
+            "PyPI",
+            "RexWzh",
+            "--stdin",
+            "--token-type",
+            "web_session",
+            "--summary",
+            "username=operator",
+            "--format",
+            "json",
+        ],
+        input=json.dumps({"session": "opaque-value"}),
+    )
+
+    assert result.exit_code == 0, result.output
+    payload = json.loads(result.output)
+    assert payload["source"] == "import"
+    assert payload["summary"] == {"username": "operator"}
+    assert "opaque-value" not in result.output
+    assert TokenStore(home=home).read("PyPI", "RexWzh")["values"] == {"session": "opaque-value"}
+
+
 def test_store_profile_roundtrip(tmp_path):
     store = EnvStore(tmp_path / "envs")
     UnitConfig.load_from_sources(env_values={"UNIT_KEY": "secret", "UNIT_VALUE": "x"})
@@ -701,18 +800,18 @@ def test_cli_new_bad_type_shows_available_types_outside_interactive(tmp_path):
     assert "Unit (unit)" in result.output
 
 
-def test_cli_token_refresh_status_list_and_clear_hide_values(tmp_path):
+def test_cli_token_import_status_list_and_clear_hide_values(tmp_path):
     runner = CliRunner()
     home = tmp_path / "arch"
     token_json = json.dumps({"access_token": "opaque-value-a", "cookie": "opaque-value-b"})
 
-    refreshed = runner.invoke(
+    imported = runner.invoke(
         cli,
         [
             "--home",
             str(home),
             "token",
-            "refresh",
+            "import",
             "PyPI",
             "RexWzh",
             "--token-type",
@@ -728,11 +827,12 @@ def test_cli_token_refresh_status_list_and_clear_hide_values(tmp_path):
         input=token_json,
     )
 
-    assert refreshed.exit_code == 0, refreshed.output
-    assert '"token_present": true' in refreshed.output
-    assert '"token_file"' in refreshed.output
-    assert "opaque-value-a" not in refreshed.output
-    assert "opaque-value-b" not in refreshed.output
+    assert imported.exit_code == 0, imported.output
+    assert '"source": "import"' in imported.output
+    assert '"token_present": true' in imported.output
+    assert '"token_file"' in imported.output
+    assert "opaque-value-a" not in imported.output
+    assert "opaque-value-b" not in imported.output
     assert (home / "tokens" / "PyPI" / "RexWzh.json").exists()
 
     status = runner.invoke(

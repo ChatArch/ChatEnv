@@ -2,6 +2,12 @@
 
 本项目按版本记录对用户可见的 CLI、运行时和发布流程变更。
 
+## 0.2.7 - 2026-08-11
+
+- 新增 `chatenv.token_refreshers` provider hook：服务包可通过 `chatenv.token_refreshers` entry point 注册 refresh 函数，由 `chatenv token refresh SERVICE PROFILE` 调用并把返回的 opaque runtime values 写入 token-store。
+- 将手工 JSON 写入从 `token refresh` 拆出为显式 `chatenv token import`，避免把 token-store 误用成第二个手工维护 secret/env 文件；`refresh` 现在表示由服务登录/刷新逻辑自动生成或更新 runtime token。
+- `TokenRefreshResult` 暴露给 leaf package 作为标准返回对象；ChatEnv 仍只负责路径、原子写入、profile 校验和 safe metadata，不解释业务 token 语义。
+
 ## 0.2.6 - 2026-08-11
 
 - 收紧 runtime token-store profile 校验：拒绝空值、`.` / `..`、路径分隔符、前后空白和会别名到其他文件名的 profile，避免错误读取或清理其他 profile 的 token/session state。

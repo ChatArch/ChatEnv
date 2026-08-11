@@ -27,6 +27,7 @@ from .paste import iter_fields_for_values, parse_pasted_env_text
 from .paths import get_paths
 from .registry import resolve_config_types
 from .store import EnvStore
+from .token_refreshers import refresh_token as refresh_runtime_token
 from .tokens import TokenStore
 from .utils import mask_secret
 
@@ -129,7 +130,7 @@ class OrderedGroup(click.Group):
 
 
 class TokenCommandGroup(OrderedGroup):
-    command_order = ["status", "refresh", "list", "clear"]
+    command_order = ["status", "refresh", "import", "list", "clear"]
 
 
 def _format_metavar(name: str) -> str:
@@ -625,7 +626,7 @@ def _render_token_status(payload: dict[str, object]) -> None:
 
 def _read_token_values(*, read_stdin: bool, value_file: Path | None) -> dict[str, object]:
     if read_stdin == bool(value_file):
-        raise click.ClickException("token refresh requires exactly one of --stdin or --file.")
+        raise click.ClickException("token import requires exactly one of --stdin or --file.")
     text = sys.stdin.read() if read_stdin else value_file.read_text(encoding="utf-8")  # type: ignore[union-attr]
     try:
         payload = json.loads(text)
@@ -639,6 +640,29 @@ def _read_token_values(*, read_stdin: bool, value_file: Path | None) -> dict[str
 @token_group.command(name="refresh")
 @click.argument("service")
 @click.argument("profile", required=False, default="default")
+@click.option("--format", "output_format", type=click.Choice(["text", "json"]), default="text", show_default=True)
+@click.pass_context
+def token_refresh(ctx: click.Context, service: str, profile: str, output_format: str):
+    """Refresh SERVICE/PROFILE through a registered service refresh provider."""
+    try:
+        payload = refresh_runtime_token(
+            service,
+            profile,
+            home=ctx.obj["paths"].home_dir,
+            env_store=_store(ctx),
+            token_store=_token_store(ctx),
+        )
+    except ValueError as exc:
+        raise click.ClickException(str(exc)) from exc
+    if output_format == "json":
+        _echo_json(payload)
+    else:
+        _render_token_status(payload)
+
+
+@token_group.command(name="import")
+@click.argument("service")
+@click.argument("profile", required=False, default="default")
 @click.option("--stdin", "read_stdin", is_flag=True, help="Read token JSON object from stdin.")
 @click.option("--file", "value_file", type=click.Path(dir_okay=False, path_type=Path), help="Read token JSON object from a file.")
 @click.option("--token-type", default="runtime", show_default=True, help="Caller-defined token/session type.")
@@ -646,7 +670,7 @@ def _read_token_values(*, read_stdin: bool, value_file: Path | None) -> dict[str
 @click.option("--expires-at", default="", help="Optional caller-provided expiry timestamp.")
 @click.option("--format", "output_format", type=click.Choice(["text", "json"]), default="text", show_default=True)
 @click.pass_context
-def token_refresh(
+def token_import(
     ctx: click.Context,
     service: str,
     profile: str,
@@ -657,7 +681,7 @@ def token_refresh(
     expires_at: str,
     output_format: str,
 ):
-    """Write refreshed generic runtime token JSON for SERVICE/PROFILE."""
+    """Explicitly import externally refreshed runtime token JSON."""
     values = _read_token_values(read_stdin=read_stdin, value_file=value_file)
     try:
         payload = _token_store(ctx).write(
@@ -667,7 +691,7 @@ def token_refresh(
             token_type=token_type,
             summary=_parse_summary(summary),
             expires_at=expires_at,
-            source="refresh",
+            source="import",
         )
     except ValueError as exc:
         raise click.ClickException(str(exc)) from exc

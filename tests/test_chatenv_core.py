@@ -2,6 +2,7 @@ import json
 from pathlib import Path
 from types import SimpleNamespace
 
+import pytest
 from click.testing import CliRunner
 import chatenv.discovery as discovery_module
 import chatenv.cli as cli_module
@@ -292,6 +293,48 @@ def test_token_store_list_and_clear_are_generic(tmp_path):
     removed = store.clear("PyPI", "RexWzh", execute=True)
     assert removed["deleted"] is True
     assert store.status("PyPI", "RexWzh")["token_present"] is False
+
+
+def test_token_store_rejects_aliasing_profile_segments(tmp_path):
+    from chatenv.tokens import TokenStore, normalize_token_profile
+
+    store = TokenStore(home=tmp_path / "arch")
+    store.write("PyPI", "RexWzh", values={"session": "opaque-value"}, token_type="web_session")
+
+    invalid_profiles = [
+        "",
+        " ",
+        ".",
+        "..",
+        "../RexWzh",
+        "RexWzh/other",
+        "RexWzh\\other",
+        " RexWzh",
+        "RexWzh ",
+        ".RexWzh",
+        "RexWzh.",
+        "Rex Wzh",
+    ]
+    for profile in invalid_profiles:
+        with pytest.raises(ValueError):
+            normalize_token_profile(profile)
+        with pytest.raises(ValueError):
+            store.status("PyPI", profile)
+
+    assert store.status("PyPI", "RexWzh")["token_present"] is True
+    assert store.status("PyPI", None)["profile"] == "default"
+
+
+def test_token_cli_reports_invalid_profile_without_aliasing(tmp_path):
+    runner = CliRunner()
+    result = runner.invoke(
+        cli,
+        ["--home", str(tmp_path / "arch"), "token", "status", "PyPI", "../RexWzh", "--format", "json"],
+    )
+
+    assert result.exit_code != 0
+    assert "single path segment" in result.output
+    assert "Traceback" not in result.output
 
 
 def test_store_profile_roundtrip(tmp_path):

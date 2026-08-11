@@ -659,15 +659,18 @@ def token_refresh(
 ):
     """Write refreshed generic runtime token JSON for SERVICE/PROFILE."""
     values = _read_token_values(read_stdin=read_stdin, value_file=value_file)
-    payload = _token_store(ctx).write(
-        service,
-        profile,
-        values=values,
-        token_type=token_type,
-        summary=_parse_summary(summary),
-        expires_at=expires_at,
-        source="refresh",
-    )
+    try:
+        payload = _token_store(ctx).write(
+            service,
+            profile,
+            values=values,
+            token_type=token_type,
+            summary=_parse_summary(summary),
+            expires_at=expires_at,
+            source="refresh",
+        )
+    except ValueError as exc:
+        raise click.ClickException(str(exc)) from exc
     if output_format == "json":
         _echo_json(payload)
     else:
@@ -681,7 +684,10 @@ def token_refresh(
 @click.pass_context
 def token_status(ctx: click.Context, service: str, profile: str, output_format: str):
     """Show safe runtime token metadata for SERVICE/PROFILE."""
-    payload = _token_store(ctx).status(service, profile)
+    try:
+        payload = _token_store(ctx).status(service, profile)
+    except ValueError as exc:
+        raise click.ClickException(str(exc)) from exc
     if output_format == "json":
         _echo_json(payload)
     else:
@@ -721,7 +727,10 @@ def token_list(ctx: click.Context, service: str | None, output_format: str):
 @click.pass_context
 def token_clear(ctx: click.Context, service: str, profile: str, execute: bool, output_format: str):
     """Clear a generic runtime token file for SERVICE/PROFILE."""
-    payload = _token_store(ctx).clear(service, profile, execute=execute)
+    try:
+        payload = _token_store(ctx).clear(service, profile, execute=execute)
+    except ValueError as exc:
+        raise click.ClickException(str(exc)) from exc
     if output_format == "json":
         _echo_json(payload)
     else:

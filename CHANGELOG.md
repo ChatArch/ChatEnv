@@ -2,6 +2,10 @@
 
 本项目按版本记录对用户可见的 CLI、运行时和发布流程变更。
 
+## 0.2.6 - 2026-08-11
+
+- 收紧 runtime token-store profile 校验：拒绝空值、`.` / `..`、路径分隔符、前后空白和会别名到其他文件名的 profile，避免错误读取或清理其他 profile 的 token/session state。
+
 ## 0.2.5 - 2026-08-11
 
 - 新增通用 runtime token-store API：`chatenv.TokenStore` / `chatenv.tokens.TokenStore`，按 `tokens/<Service>/<profile>.json` 管理动态 token/session JSON。

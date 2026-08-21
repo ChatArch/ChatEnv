@@ -99,7 +99,7 @@ def test_runtime_dependencies_use_reviewed_latest_windows():
         encoding="utf-8"
     )
 
-    assert '"chatstyle>=0.1.0,<0.2.0"' in pyproject_text
+    assert '"chatstyle>=0.2.0,<0.3.0"' in pyproject_text
     assert '"click>=8.4.2,<9.0"' in pyproject_text
     assert '"python-dotenv>=1.2.2,<2.0"' in pyproject_text
     assert '"chatstyle>=0.1.0"' not in pyproject_text

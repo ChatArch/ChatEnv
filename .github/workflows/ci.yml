@@ -34,6 +34,7 @@ jobs:
         run: |
           chatenv --version
           chatenv --tree
+          chatenv --tree-brief
       - name: Build docs
         run: python -m mkdocs build --strict
       - name: Build package

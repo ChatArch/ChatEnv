@@ -2,6 +2,11 @@
 
 本项目按版本记录对用户可见的 CLI、运行时和发布流程变更。
 
+## 0.2.10 - 2026-08-21
+
+- 将本地命令树实现迁移到 ChatStyle 0.2 的共享 `add_tree_option()` runtime，并新增 `chatenv --tree-brief`；完整树和简略树都直接读取真实 Click 注册表。
+- 补齐完整/简略命令树的 CLI、文档和 installed-package CI smoke，同时保留 `--home`、`token` 等现有根选项与命令组。
+
 ## 0.2.9 - 2026-08-21
 
 - 放宽 ChatStyle runtime 依赖到 `chatstyle>=0.2.0,<0.3.0`，让 ChatDNS 和其他下游包可以使用 ChatStyle 0.2.0 的共享 Click tree renderer。

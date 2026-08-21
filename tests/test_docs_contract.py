@@ -1,6 +1,8 @@
 from pathlib import Path
 
-from chatenv.cli import cli, render_cli_tree
+from chatstyle import render_click_tree
+
+from chatenv.cli import cli
 
 
 PUBLIC_DOCS = (
@@ -49,18 +51,27 @@ def test_public_docs_are_bilingual_and_use_chatarch_domain() -> None:
 
 
 def test_public_docs_keep_live_cli_tree_contract() -> None:
-    live_tree = render_cli_tree(cli)
+    live_tree = render_click_tree(cli)
     required = [
-        "chatenv [--home <HOME>]  # Manage typed env profiles",
+        "├── --tree-brief  # Print the registered command tree without parameter signatures.",
+        "├── --home HOME  # Override CHATARCH_HOME for this command.",
         "├── token  # Manage generic runtime token profiles.",
         "│   ├── refresh <SERVICE> [PROFILE]",
         "│   ├── import <SERVICE> [PROFILE]",
-        "└── test [--target <TARGET>]",
+        "└── test [--target TARGET]",
     ]
     for rel in ("README.md", "README.en.md", "docs/cli.md", "docs/cli.en.md"):
         text = Path(rel).read_text(encoding="utf-8")
+        assert "chatenv --tree-brief" in text, f"{rel} missing brief tree usage"
         for line in required:
             assert line in text, f"{rel} missing {line!r}"
     for line in required:
         assert line in live_tree
     assert "hello" not in live_tree.lower()
+
+
+def test_development_docs_include_both_tree_smokes() -> None:
+    for rel in ("docs/development.md", "docs/development.en.md"):
+        text = Path(rel).read_text(encoding="utf-8")
+        assert "python -m chatenv.cli --tree" in text, rel
+        assert "python -m chatenv.cli --tree-brief" in text, rel

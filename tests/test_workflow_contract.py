@@ -8,6 +8,7 @@ def test_ci_workflow_runs_matrix_and_installed_cli_smoke() -> None:
     assert "python -m pytest -q" in workflow
     assert "chatenv --version" in workflow
     assert "chatenv --tree" in workflow
+    assert "chatenv --tree-brief" in workflow
     assert "python -m build" in workflow
     assert "python -m twine check dist/*" in workflow
     assert "mkdocs build --strict" in workflow

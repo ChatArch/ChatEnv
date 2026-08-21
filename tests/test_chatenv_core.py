@@ -183,6 +183,25 @@ def test_cli_paste_active_merges_file_values_without_system_env(monkeypatch, tmp
 
 
 
+def _file_mode(path: Path) -> int:
+    return path.stat().st_mode & 0o777
+
+
+def test_env_store_writes_profile_files_with_owner_read_write_mode(tmp_path):
+    store = EnvStore(tmp_path / "envs")
+
+    active = store.save_active(UnitConfig, {"UNIT_KEY": "secret", "UNIT_VALUE": "active"})
+    profile = store.save_profile(UnitConfig, "work", {"UNIT_KEY": "secret", "UNIT_VALUE": "named"})
+
+    assert _file_mode(active) == 0o600
+    assert _file_mode(profile) == 0o600
+
+    profile.chmod(0o644)
+    store.use_profile(UnitConfig, "work")
+
+    assert _file_mode(active) == 0o600
+
+
 def test_list_marks_active_default_profile(tmp_path):
     runner = CliRunner()
     home = tmp_path / "arch"

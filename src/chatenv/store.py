@@ -9,6 +9,9 @@ from dotenv import dotenv_values
 from .fields import BaseEnvConfig, normalize_profile_name
 
 
+ENV_FILE_MODE = 0o600
+
+
 class EnvStore:
     def __init__(self, envs_dir: str | Path):
         self.envs_dir = Path(envs_dir)
@@ -57,6 +60,7 @@ class EnvStore:
         target = self.active_path(config_cls)
         target.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy(source, target)
+        self._ensure_env_file_mode(target)
         return source
 
     def delete_profile(self, config_cls: type[BaseEnvConfig], name: str) -> Path:
@@ -101,4 +105,9 @@ class EnvStore:
         else:
             content = self._render_explicit_env_file(config_cls, values)
         target_path.write_text(content, encoding="utf-8")
+        self._ensure_env_file_mode(target_path)
         return target_path
+
+    @staticmethod
+    def _ensure_env_file_mode(path: Path) -> None:
+        path.chmod(ENV_FILE_MODE)

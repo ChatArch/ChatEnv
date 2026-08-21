@@ -2,6 +2,10 @@
 
 本项目按版本记录对用户可见的 CLI、运行时和发布流程变更。
 
+## 0.2.11 - 2026-08-22
+
+- EnvStore 写入 active profile、named profile 或从 named profile 切换到 active profile 时，统一把生成的 `.env` 文件设为 owner read/write (`0600`)；现有 CLI/API 签名不变，本机 owner 仍可正常编辑。
+
 ## 0.2.10 - 2026-08-21
 
 - 将本地命令树实现迁移到 ChatStyle 0.2 的共享 `add_tree_option()` runtime，并新增 `chatenv --tree-brief`；完整树和简略树都直接读取真实 Click 注册表。

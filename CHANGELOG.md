@@ -2,6 +2,10 @@
 
 本项目按版本记录对用户可见的 CLI、运行时和发布流程变更。
 
+## 0.2.9 - 2026-08-21
+
+- 放宽 ChatStyle runtime 依赖到 `chatstyle>=0.2.0,<0.3.0`，让 ChatDNS 和其他下游包可以使用 ChatStyle 0.2.0 的共享 Click tree renderer。
+
 ## 0.2.8 - 2026-08-12
 
 - 将文档站点迁移到 ChatArch docs custom domain：`https://arch.gh.wzhecnu.cn/ChatEnv/`，并补齐 suffix-mode i18n 英文页面。

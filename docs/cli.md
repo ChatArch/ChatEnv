@@ -62,6 +62,7 @@ chatenv init -t example -i    # 初始化前逐项补问
 ```bash
 chatenv --version             # 查看当前 chatenv 版本
 chatenv --tree                # 从已注册 Click 命令生成完整命令树
+chatenv --tree-brief          # 从同一注册表生成省略参数签名的简略命令树
 chatenv list                  # 按类型列出 active .env [default] 和 named profiles
 chatenv list -t example
 chatenv status                # 列出当前 Python 环境已注册的平台/schema
@@ -135,29 +136,31 @@ external-refresh-command | chatenv token import PyPI RexWzh --stdin --token-type
 
 ## 命令树 / Readback
 
-`chatenv --tree` 从当前安装包的 Click 注册表实时生成命令树，适合发布验收、文档校对和自动化 readback。
+`chatenv --tree` 从当前安装包的 Click 注册表实时生成带参数签名的命令树；`chatenv --tree-brief` 从同一注册表生成省略参数签名的版本。两者都适合发布验收、文档校对和自动化 readback。
 
 ```text
-chatenv [--home <HOME>]  # Manage typed env profiles under $CHATARCH_HOME/envs.
-├── --help  # Show this help message.
-├── --version  # Show the installed package version.
+chatenv
+├── --help  # Show this message and exit.
+├── --version  # Show the version and exit.
 ├── --tree  # Print the registered command tree.
-├── init [--type <CONFIG-TYPES>] [--interactive/--no-interactive]  # Create or update active typed env files.
-├── new [NAME] [--type <CONFIG-TYPES>] [--yes] [--interactive/--no-interactive]  # Create a named typed profile without activating it.
-├── paste [--value <VALUE>] [--stdin] [--profile <PROFILE>] [--yes] [--interactive/--no-interactive]  # Paste loose env text and import recognized keys.
-├── use [NAME] [--type <CONFIG-TYPES>] [--interactive/--no-interactive]  # Activate a named profile for one config type.
-├── list [--type <CONFIG-TYPES>]  # List active default and named profiles grouped by config type.
-├── status [--type <CONFIG-TYPES>] [--detail]  # Show registered config platforms and provider ownership.
+├── --tree-brief  # Print the registered command tree without parameter signatures.
+├── --home HOME  # Override CHATARCH_HOME for this command.
+├── init [--type CONFIG-TYPES] [--interactive]  # Create or update active typed env files.
+├── new [NAME] [--type CONFIG-TYPES] [--yes] [--interactive]  # Create a named typed profile without activating it.
+├── paste [--value VALUE] [--stdin] [--profile PROFILE] [--yes] [--interactive]  # Paste loose env text and import recognized keys.
+├── use [NAME] [--type CONFIG-TYPES] [--interactive]  # Activate a named profile for one config type.
+├── list [--type CONFIG-TYPES]  # List active default and named profiles grouped by config type.
+├── status [--type CONFIG-TYPES] [--detail]  # Show registered config platforms and provider ownership.
 ├── token  # Manage generic runtime token profiles.
-│   ├── status <SERVICE> [PROFILE] [--format <OUTPUT-FORMAT>]  # Show safe runtime token metadata for SERVICE/PROFILE.
-│   ├── refresh <SERVICE> [PROFILE] [--format <OUTPUT-FORMAT>]  # Refresh SERVICE/PROFILE through a registered service refresh provider.
-│   ├── import <SERVICE> [PROFILE] [--stdin] [--file <VALUE-FILE>] [--token-type <TOKEN-TYPE>] [--summary <SUMMARY>] [--expires-at <EXPIRES-AT>] [--format <OUTPUT-FORMAT>]  # Explicitly import externally refreshed runtime token JSON.
-│   ├── list [SERVICE] [--format <OUTPUT-FORMAT>]  # List runtime token profiles grouped by service.
-│   └── clear <SERVICE> [PROFILE] [--execute] [--format <OUTPUT-FORMAT>]  # Clear a generic runtime token file for SERVICE/PROFILE.
-├── cat [NAME] [--no-mask] [--type <CONFIG-TYPES>]  # Print active values, or a named typed profile with -t TYPE NAME.
-├── get [KEY] [--interactive/--no-interactive]  # Get a configuration value from active typed env files.
-├── set [KEY-VALUE] [--interactive/--no-interactive]  # Set a configuration value in the matching active typed env file.
-├── save [NAME] [--type <CONFIG-TYPES>] [--yes] [--interactive/--no-interactive]  # Save current active values as a named profile.
-├── delete [NAME] [--type <CONFIG-TYPES>] [--yes] [--interactive/--no-interactive]  # Delete a named profile for one config type.
-└── test [--target <TARGET>] [--interactive/--no-interactive]  # Test a registered configuration schema.
+│   ├── status <SERVICE> [PROFILE] [--format OUTPUT-FORMAT]  # Show safe runtime token metadata for SERVICE/PROFILE.
+│   ├── refresh <SERVICE> [PROFILE] [--format OUTPUT-FORMAT]  # Refresh SERVICE/PROFILE through a registered service refresh provider.
+│   ├── import <SERVICE> [PROFILE] [--stdin] [--file VALUE-FILE] [--token-type TOKEN-TYPE] [--summary SUMMARY] [--expires-at EXPIRES-AT] [--format OUTPUT-FORMAT]  # Explicitly import externally refreshed runtime token JSON.
+│   ├── list [SERVICE] [--format OUTPUT-FORMAT]  # List runtime token profiles grouped by service.
+│   └── clear <SERVICE> [PROFILE] [--execute] [--format OUTPUT-FORMAT]  # Clear a generic runtime token file for SERVICE/PROFILE.
+├── cat [NAME] [--no-mask] [--type CONFIG-TYPES]  # Print active values, or a named typed profile with -t TYPE NAME.
+├── get [KEY] [--interactive]  # Get a configuration value from active typed env files.
+├── set [KEY-VALUE] [--interactive]  # Set a configuration value in the matching active typed env file.
+├── save [NAME] [--type CONFIG-TYPES] [--yes] [--interactive]  # Save current active values as a named profile.
+├── delete [NAME] [--type CONFIG-TYPES] [--yes] [--interactive]  # Delete a named profile for one config type.
+└── test [--target TARGET] [--interactive]  # Test a registered configuration schema.
 ```

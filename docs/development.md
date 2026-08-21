@@ -16,6 +16,8 @@ python -m pytest -q
 
 ```bash
 PYTHONPATH=src python -m chatenv.cli --help
+PYTHONPATH=src python -m chatenv.cli --tree
+PYTHONPATH=src python -m chatenv.cli --tree-brief
 PYTHONPATH=src python -m chatenv.cli --home /tmp/chatenv-smoke list || true
 ```
 

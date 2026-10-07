@@ -2,7 +2,7 @@
 
 本项目按版本记录对用户可见的 CLI、运行时和发布流程变更。
 
-## Unreleased
+## 0.2.12 - 2026-10-07
 
 - 新增内置、非敏感的 `ChatArch` typed schema：`CHATARCH_AUTO_PROMPT`（默认字符串 `true`），以 `envs/ChatArch/.env` 作为 active profile，支持 `chatarch` alias 及既有 status/cat/get/set/new/save/use 流程。
 - ChatEnv CLI 的缺参自动补问现在按显式 `-i/-I`、进程变量、所选 home 的 ChatArch active profile、默认值的顺序决策，不加载 profile 到进程环境或跨 home 复用字段状态。其他 CLI 仍需自行接入持久化 profile；已支持时可继续共享进程环境变量覆盖。

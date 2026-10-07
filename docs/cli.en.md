@@ -20,11 +20,22 @@ chatenv --home /tmp/chatarch cat -t example
 
 ## Interactive behavior
 
-When required arguments are missing, ChatEnv asks interactively in a TTY. Use `-i` to force prompts, `-I` to disable prompts, or `CHATARCH_AUTO_PROMPT=false` to disable default auto-prompting for automation.
+When required arguments are missing, ChatEnv asks interactively in a TTY. `CHATARCH_AUTO_PROMPT` is a built-in, non-sensitive `ChatArch` typed field with the string default `true`; its active profile is stored at `$CHATARCH_HOME/envs/ChatArch/.env`, and its type alias is `chatarch`.
+
+```bash
+chatenv status -t chatarch --detail
+chatenv set CHATARCH_AUTO_PROMPT=false
+chatenv save -t chatarch automation-off
+chatenv use -t chatarch automation-off
+```
+
+For default prompting, precedence is explicit `-i/-I`, process `CHATARCH_AUTO_PROMPT`, the active `ChatArch/.env` under the selected home, then `true`. `-i` still requires an interactive TTY; `-I` disables prompting. `0`, `false`, `no`, and `off` disable default prompting, while other strings remain enabled.
+
+Active-profile integration is currently implemented by the ChatEnv CLI only. Other ChatArch CLIs still need to adopt it; the process environment variable remains a shared override for CLIs that support it.
 
 ## Schema registration
 
-ChatEnv loads config providers through the `chatenv.configs` entry point. Leaf packages define their own `BaseEnvConfig` classes and register them in package metadata.
+ChatEnv loads config providers through the `chatenv.configs` entry point. Its built-in shared schemas currently cover ChatArch, OpenAI, and Feishu. Leaf packages define their own `BaseEnvConfig` classes and register them in package metadata.
 
 ## Common commands
 

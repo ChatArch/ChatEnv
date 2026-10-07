@@ -22,11 +22,22 @@ chatenv --home /tmp/chatarch cat -t example
 
 缺少必要命令参数时，ChatEnv 默认会在可交互终端中自动补问。例如缺少 profile name、key，或命令需要唯一 config type 但未传 `-t/--type` 时，会进入补参流程。
 
-- `-i`：显式强制交互补问。
+`CHATARCH_AUTO_PROMPT` 是内置、非敏感的 `ChatArch` typed 字段，默认字符串值为 `true`；其 active profile 的固定位置是 `$CHATARCH_HOME/envs/ChatArch/.env`，类型别名为 `chatarch`。可以通过已有命令查看和保存它：
+
+```bash
+chatenv status -t chatarch --detail
+chatenv set CHATARCH_AUTO_PROMPT=false
+chatenv save -t chatarch automation-off
+chatenv use -t chatarch automation-off
+```
+
+自动补问的优先级为：显式 `-i/-I`、进程 `CHATARCH_AUTO_PROMPT`、所选 home 下 active `ChatArch/.env`、默认 `true`。
+
+- `-i`：显式强制交互补问，但仍要求可交互 TTY。
 - `-I`：显式禁用交互补问，缺必要参数时报错。
 - `CHATARCH_AUTO_PROMPT=false`：关闭默认自动补问；不影响显式 `-i`，也不影响必要参数已经足够的命令。
 
-可识别的 false 值为 `false`、`0`、`no`、`off`：
+可识别的 false 值为 `false`、`0`、`no`、`off`；其他字符串保持启用语义：
 
 ```bash
 export CHATARCH_AUTO_PROMPT=false
@@ -34,9 +45,11 @@ chatenv get          # 直接报错，不自动询问 key
 chatenv get -i       # 仍然强制询问 key
 ```
 
+持久化 active-profile 策略目前仅由 ChatEnv CLI 消费；其他 ChatArch CLI 仍需自行接入。进程环境变量仍是已支持该变量的 CLI 可共享的覆盖方式。
+
 ## Schema 注册
 
-`chatenv` 命令基于已注册 schema 工作。ChatEnv 内置少量 ChatArch 共享 schema（当前为 OpenAI / Feishu）；业务项目的私有变量仍应定义并注册自己的 `BaseEnvConfig` 子类。
+`chatenv` 命令基于已注册 schema 工作。ChatEnv 内置少量 ChatArch 共享 schema（当前为 ChatArch / OpenAI / Feishu）；业务项目的私有变量仍应定义并注册自己的 `BaseEnvConfig` 子类。
 
 ```python
 from chatenv import BaseEnvConfig, EnvField

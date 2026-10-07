@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import json
 import sys
-import os
 from pathlib import Path
 import click
 
@@ -26,6 +25,7 @@ from .discovery import get_provider_errors, load_config_providers
 from .fields import BaseEnvConfig, EnvField, normalize_profile_name
 from .paste import iter_fields_for_values, parse_pasted_env_text
 from .paths import get_paths
+from .policy import AUTO_PROMPT_ENV_VAR, FALSE_VALUES, resolve_auto_prompt_enabled
 from .registry import resolve_config_types
 from .store import EnvStore
 from .token_refreshers import refresh_token as refresh_runtime_token
@@ -59,15 +59,21 @@ TEST_TARGET_SCHEMA = CommandSchema(
 )
 
 
-AUTO_PROMPT_ENV_VAR = "CHATARCH_AUTO_PROMPT"
-FALSE_VALUES = {"0", "false", "no", "off"}
+def _selected_home_for_auto_prompt() -> Path | None:
+    """Read the selected root from the active Click context without mutation."""
+    context = click.get_current_context(silent=True)
+    while context is not None:
+        if isinstance(context.obj, dict):
+            paths = context.obj.get("paths")
+            if paths is not None:
+                return paths.home_dir
+        context = context.parent
+    return None
 
 
-def auto_prompt_enabled() -> bool:
-    value = os.getenv(AUTO_PROMPT_ENV_VAR)
-    if value is None:
-        return True
-    return value.strip().lower() not in FALSE_VALUES
+def auto_prompt_enabled(home: str | Path | None = None) -> bool:
+    """Return ChatEnv's process/profile/default auto-prompt policy."""
+    return resolve_auto_prompt_enabled(home)
 
 
 def resolve_interactive_mode(
@@ -77,8 +83,10 @@ def resolve_interactive_mode(
     respect_auto_prompt_env: bool = False,
 ):
     effective_auto_prompt_condition = auto_prompt_condition
-    if respect_auto_prompt_env:
-        effective_auto_prompt_condition = auto_prompt_condition and auto_prompt_enabled()
+    if respect_auto_prompt_env and interactive is None and auto_prompt_condition:
+        effective_auto_prompt_condition = auto_prompt_enabled(
+            _selected_home_for_auto_prompt()
+        )
     return _chatstyle_resolve_interactive_mode(
         interactive,
         auto_prompt_condition=effective_auto_prompt_condition,
@@ -144,13 +152,13 @@ class TokenCommandGroup(OrderedGroup):
 @click.pass_context
 def cli(ctx: click.Context, home: Path | None):
     """Manage typed env profiles under $CHATARCH_HOME/envs."""
-    load_config_providers()
     paths = get_paths(home)
     ctx.obj = {
         "paths": paths,
         "store": EnvStore(paths.envs_dir),
         "token_store": TokenStore(tokens_dir=paths.tokens_dir),
     }
+    load_config_providers()
 
 
 def _store(ctx: click.Context) -> EnvStore:

@@ -46,6 +46,19 @@ $CHATARCH_HOME/tokens/    # generated runtime tokens/sessions, parallel to env p
 
 ChatEnv manages only stable env/profile files and runtime token-store files. It does not create extra config/cache/data/state surfaces, and `tokens/` is not a second manually maintained secret/env layer.
 
+## Auto-prompt setting
+
+`CHATARCH_AUTO_PROMPT` is a built-in, non-sensitive `ChatArch` typed field with the string default `true`. Its active profile is stored at `$CHATARCH_HOME/envs/ChatArch/.env`; the type alias is `chatarch`:
+
+```bash
+chatenv set CHATARCH_AUTO_PROMPT=false
+chatenv cat -t chatarch
+```
+
+For missing command input, ChatEnv resolves explicit `-i/-I`, then the process `CHATARCH_AUTO_PROMPT`, then the active `ChatArch/.env` in the selected home, then the `true` default. `-i` still requires an interactive TTY, while `-I` always disables prompting. `0`, `false`, `no`, and `off` disable default prompting; other strings remain enabled.
+
+Active-profile integration is currently implemented by the ChatEnv CLI only. Other ChatArch CLIs still need to adopt it; the process environment variable remains a shared override for CLIs that support it.
+
 ## CLI tree
 
 `chatenv --tree` renders the live Click command registry with parameter signatures. `chatenv --tree-brief` reads the same registry without parameter signatures.

@@ -1,14 +1,20 @@
 import json
+import os
 from pathlib import Path
+import subprocess
+import sys
 from types import SimpleNamespace
 
 import pytest
 from click.testing import CliRunner
+from chatenv import ChatArchConfig as ExportedChatArchConfig
+from chatenv import auto_prompt_enabled as exported_auto_prompt_enabled
 import chatenv.discovery as discovery_module
 import chatenv.cli as cli_module
 from chatenv.cli import cli
-from chatenv.configs import FeishuConfig, OpenAIConfig
+from chatenv.configs import ChatArchConfig, FeishuConfig, OpenAIConfig
 from chatenv.fields import BaseEnvConfig, EnvField
+from chatenv.policy import resolve_auto_prompt_enabled
 from chatenv.paste import parse_pasted_env_text
 from chatenv.paths import get_paths
 from chatenv.store import EnvStore
@@ -696,6 +702,282 @@ def test_chatenv_auto_prompt_env_false_keeps_force_interactive(monkeypatch):
 
     assert resolution.force_interactive is True
     assert resolution.need_prompt is True
+
+
+def test_builtin_chatarch_auto_prompt_schema_is_registered_and_non_sensitive():
+    assert BaseEnvConfig.get_config_by_alias("chatarch") is ChatArchConfig
+    assert ExportedChatArchConfig is ChatArchConfig
+    assert ChatArchConfig.get_storage_name() == "ChatArch"
+
+    field = ChatArchConfig.get_fields()["CHATARCH_AUTO_PROMPT"]
+    assert field.env_key == "CHATARCH_AUTO_PROMPT"
+    assert field.default == "true"
+    assert field.is_sensitive is False
+
+
+@pytest.mark.parametrize("false_value", ["0", "false", "no", "off"])
+def test_auto_prompt_policy_keeps_false_and_unknown_string_semantics(false_value, tmp_path):
+    home = tmp_path / "arch"
+
+    assert (
+        resolve_auto_prompt_enabled(
+            home,
+            environment={"CHATARCH_AUTO_PROMPT": false_value},
+        )
+        is False
+    )
+    assert (
+        resolve_auto_prompt_enabled(
+            home,
+            environment={"CHATARCH_AUTO_PROMPT": "enabled-by-process"},
+        )
+        is True
+    )
+    assert (
+        exported_auto_prompt_enabled(
+            home,
+            environment={"CHATARCH_AUTO_PROMPT": "true"},
+        )
+        is True
+    )
+
+
+def test_chatarch_auto_prompt_default_is_visible_through_status_cat_and_get(tmp_path, monkeypatch):
+    runner = CliRunner()
+    home = tmp_path / "arch"
+    monkeypatch.delenv("CHATARCH_AUTO_PROMPT", raising=False)
+
+    status = runner.invoke(cli, ["--home", str(home), "status", "-t", "chatarch", "--detail"])
+    cat = runner.invoke(cli, ["--home", str(home), "cat", "-t", "chatarch"])
+    get = runner.invoke(cli, ["--home", str(home), "get", "CHATARCH_AUTO_PROMPT"])
+
+    assert status.exit_code == 0, status.output
+    assert "ChatArch | title=ChatArch Configuration" in status.output
+    assert "aliases=chatarch" in status.output
+    assert "CHATARCH_AUTO_PROMPT" in status.output
+    assert "default=true" in status.output
+    assert cat.exit_code == 0, cat.output
+    assert "CHATARCH_AUTO_PROMPT='true'" in cat.output
+    assert get.exit_code == 0, get.output
+    assert get.output == "true\n"
+
+
+def test_chatarch_auto_prompt_set_save_new_and_use_round_trip(tmp_path):
+    runner = CliRunner()
+    home = tmp_path / "arch"
+
+    set_false = runner.invoke(
+        cli,
+        ["--home", str(home), "set", "CHATARCH_AUTO_PROMPT=false"],
+    )
+    save_false = runner.invoke(
+        cli,
+        ["--home", str(home), "save", "-t", "chatarch", "disabled"],
+    )
+    set_true = runner.invoke(
+        cli,
+        ["--home", str(home), "set", "CHATARCH_AUTO_PROMPT=true"],
+    )
+    new_true = runner.invoke(
+        cli,
+        ["--home", str(home), "new", "-t", "chatarch", "enabled"],
+    )
+    use_false = runner.invoke(
+        cli,
+        ["--home", str(home), "use", "-t", "chatarch", "disabled"],
+    )
+    get_false = runner.invoke(
+        cli,
+        ["--home", str(home), "get", "CHATARCH_AUTO_PROMPT"],
+    )
+
+    for result in (set_false, save_false, set_true, new_true, use_false, get_false):
+        assert result.exit_code == 0, result.output
+    assert (home / "envs" / "ChatArch" / "disabled.env").read_text(encoding="utf-8").count(
+        "CHATARCH_AUTO_PROMPT='false'"
+    ) == 1
+    assert (home / "envs" / "ChatArch" / "enabled.env").read_text(encoding="utf-8").count(
+        "CHATARCH_AUTO_PROMPT='true'"
+    ) == 1
+    assert get_false.output == "false\n"
+
+
+def _set_chatarch_auto_prompt(home: Path, value: str) -> None:
+    EnvStore(home / "envs").save_active(
+        ChatArchConfig,
+        {"CHATARCH_AUTO_PROMPT": value},
+    )
+
+
+def _mock_tty_interactive_mode(monkeypatch):
+    monkeypatch.setattr(
+        "chatenv.cli._chatstyle_resolve_interactive_mode",
+        _tty_resolution,
+    )
+
+
+def test_profile_auto_prompt_false_and_true_control_missing_input_in_mocked_tty(tmp_path, monkeypatch):
+    runner = CliRunner()
+    disabled_home = tmp_path / "disabled"
+    enabled_home = tmp_path / "enabled"
+    _set_chatarch_auto_prompt(disabled_home, "false")
+    _set_chatarch_auto_prompt(enabled_home, "true")
+    monkeypatch.delenv("CHATARCH_AUTO_PROMPT", raising=False)
+    _mock_tty_interactive_mode(monkeypatch)
+    selected: list[str] = []
+    monkeypatch.setattr(
+        "chatenv.cli.ask_select",
+        lambda message, choices: selected.append(message) or ChatArchConfig,
+    )
+
+    disabled = runner.invoke(cli, ["--home", str(disabled_home), "new", "disabled-profile"])
+    enabled = runner.invoke(cli, ["--home", str(enabled_home), "new", "enabled-profile"])
+
+    assert disabled.exit_code != 0
+    assert "new requires --type/-t outside interactive mode" in disabled.output
+    assert enabled.exit_code == 0, enabled.output
+    assert selected == ["Select one config type for new:"]
+
+
+def test_process_auto_prompt_environment_overrides_active_profile_in_both_directions(tmp_path, monkeypatch):
+    runner = CliRunner()
+    profile_false_home = tmp_path / "profile-false"
+    profile_true_home = tmp_path / "profile-true"
+    _set_chatarch_auto_prompt(profile_false_home, "off")
+    _set_chatarch_auto_prompt(profile_true_home, "true")
+    _mock_tty_interactive_mode(monkeypatch)
+    selected: list[str] = []
+    monkeypatch.setattr(
+        "chatenv.cli.ask_select",
+        lambda message, choices: selected.append(message) or ChatArchConfig,
+    )
+
+    monkeypatch.setenv("CHATARCH_AUTO_PROMPT", "enabled-by-process")
+    process_true = runner.invoke(cli, ["--home", str(profile_false_home), "new", "process-true"])
+
+    monkeypatch.setenv("CHATARCH_AUTO_PROMPT", "0")
+    process_false = runner.invoke(cli, ["--home", str(profile_true_home), "new", "process-false"])
+
+    assert process_true.exit_code == 0, process_true.output
+    assert process_false.exit_code != 0
+    assert "new requires --type/-t outside interactive mode" in process_false.output
+    assert selected == ["Select one config type for new:"]
+
+
+def test_explicit_interactive_flags_override_profile_but_force_mode_needs_a_tty(tmp_path, monkeypatch):
+    runner = CliRunner()
+    home = tmp_path / "arch"
+    _set_chatarch_auto_prompt(home, "false")
+    monkeypatch.delenv("CHATARCH_AUTO_PROMPT", raising=False)
+    selected: list[str] = []
+    with monkeypatch.context() as tty_monkeypatch:
+        _mock_tty_interactive_mode(tty_monkeypatch)
+        tty_monkeypatch.setattr(
+            "chatenv.cli.ask_select",
+            lambda message, choices: selected.append(message) or ChatArchConfig,
+        )
+
+        force_interactive = runner.invoke(cli, ["--home", str(home), "new", "-i", "forced"])
+        force_noninteractive = runner.invoke(cli, ["--home", str(home), "new", "-I", "disabled"])
+
+        assert force_interactive.exit_code == 0, force_interactive.output
+        assert force_noninteractive.exit_code != 0
+        assert "new requires --type/-t outside interactive mode" in force_noninteractive.output
+        assert selected == ["Select one config type for new:"]
+
+    no_tty = runner.invoke(cli, ["--home", str(home), "get", "-i"])
+    assert no_tty.exit_code != 0
+    assert "tty" in no_tty.output.lower()
+
+
+def test_auto_prompt_policy_uses_explicit_home_before_chatarch_home(tmp_path, monkeypatch):
+    runner = CliRunner()
+    inherited_home = tmp_path / "inherited"
+    selected_home = tmp_path / "selected"
+    _set_chatarch_auto_prompt(inherited_home, "true")
+    monkeypatch.setenv("CHATARCH_HOME", str(inherited_home))
+    monkeypatch.delenv("CHATARCH_AUTO_PROMPT", raising=False)
+    _mock_tty_interactive_mode(monkeypatch)
+    monkeypatch.setattr("chatenv.cli.ask_select", lambda message, choices: ChatArchConfig)
+
+    set_result = runner.invoke(
+        cli,
+        ["--home", str(selected_home), "set", "CHATARCH_AUTO_PROMPT=false"],
+    )
+
+    result = runner.invoke(cli, ["--home", str(selected_home), "new", "isolated"])
+
+    assert set_result.exit_code == 0, set_result.output
+    assert EnvStore(selected_home / "envs").load_active(ChatArchConfig) == {
+        "CHATARCH_AUTO_PROMPT": "false"
+    }
+    assert EnvStore(inherited_home / "envs").load_active(ChatArchConfig) == {
+        "CHATARCH_AUTO_PROMPT": "true"
+    }
+    assert result.exit_code != 0
+    assert "new requires --type/-t outside interactive mode" in result.output
+
+
+def test_auto_prompt_policy_does_not_leak_class_field_state_between_cli_homes(tmp_path, monkeypatch):
+    runner = CliRunner()
+    disabled_home = tmp_path / "disabled"
+    fresh_home = tmp_path / "fresh"
+    _set_chatarch_auto_prompt(disabled_home, "false")
+    monkeypatch.delenv("CHATARCH_AUTO_PROMPT", raising=False)
+    _mock_tty_interactive_mode(monkeypatch)
+    selected: list[str] = []
+    monkeypatch.setattr(
+        "chatenv.cli.ask_select",
+        lambda message, choices: selected.append(message) or ChatArchConfig,
+    )
+
+    cat = runner.invoke(cli, ["--home", str(disabled_home), "cat", "-t", "chatarch"])
+    disabled = runner.invoke(cli, ["--home", str(disabled_home), "new", "disabled-profile"])
+    fresh = runner.invoke(cli, ["--home", str(fresh_home), "new", "fresh-profile"])
+
+    assert cat.exit_code == 0, cat.output
+    assert disabled.exit_code != 0
+    assert fresh.exit_code == 0, fresh.output
+    assert selected == ["Select one config type for new:"]
+
+
+def test_new_python_process_uses_persisted_auto_prompt_false(tmp_path):
+    home = tmp_path / "arch"
+    _set_chatarch_auto_prompt(home, "false")
+    project_root = Path(__file__).resolve().parents[1]
+    environment = os.environ.copy()
+    environment.pop("CHATARCH_AUTO_PROMPT", None)
+    environment["PYTHONPATH"] = str(project_root / "src")
+    script = """
+import sys
+from types import SimpleNamespace
+from click.testing import CliRunner
+import chatenv.cli as cli_module
+
+def tty_resolution(interactive=None, *, auto_prompt_condition=True):
+    return SimpleNamespace(
+        interactive=interactive,
+        can_prompt=True,
+        force_interactive=interactive is True,
+        need_prompt=interactive is True or (interactive is None and auto_prompt_condition),
+    )
+
+cli_module._chatstyle_resolve_interactive_mode = tty_resolution
+result = CliRunner().invoke(cli_module.cli, ["--home", sys.argv[1], "get"])
+if result.exit_code == 0 or "required" not in result.output.lower():
+    raise SystemExit(result.output)
+"""
+
+    completed = subprocess.run(
+        [sys.executable, "-c", script, str(home)],
+        cwd=project_root,
+        env=environment,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert completed.returncode == 0, completed.stdout + completed.stderr
 
 
 def test_cli_new_missing_type_errors_when_auto_prompt_disabled(

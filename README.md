@@ -46,6 +46,19 @@ $CHATARCH_HOME/tokens/    # generated runtime tokens/sessions, parallel to env p
 
 ChatEnv 只负责 stable env/profile 与 runtime token-store 的存储规则，不额外创建 config/cache/data/state，也不把 `tokens/` 当作第二个手工维护 secret/env 层。
 
+## 自动补问设置
+
+`CHATARCH_AUTO_PROMPT` 是 ChatEnv 内置、非敏感的 `ChatArch` typed 字段，默认字符串值为 `true`。它的 active profile 固定存储在 `$CHATARCH_HOME/envs/ChatArch/.env`，类型别名为 `chatarch`：
+
+```bash
+chatenv set CHATARCH_AUTO_PROMPT=false
+chatenv cat -t chatarch
+```
+
+当 ChatEnv 缺少需要补问的命令输入时，优先级依次为显式 `-i/-I`、进程环境变量 `CHATARCH_AUTO_PROMPT`、所选 home 下的 `ChatArch/.env` active profile、默认值 `true`。`-i` 仍要求可交互 TTY；`-I` 始终禁用补问。`0`、`false`、`no`、`off` 关闭默认补问，其他字符串保持启用语义。
+
+active-profile 集成目前只由 ChatEnv CLI 实现；其他 ChatArch CLI 仍需自行接入该 profile。进程环境变量仍是可供已支持它的 CLI 共享的覆盖方式。
+
 ## CLI 树
 
 `chatenv --tree` 从当前安装包的 Click 注册表实时输出带参数签名的完整命令面；`chatenv --tree-brief` 读取同一注册表，但省略参数签名。

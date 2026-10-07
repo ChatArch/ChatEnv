@@ -10,6 +10,21 @@ from __future__ import annotations
 from .fields import BaseEnvConfig, EnvField
 
 
+class ChatArchConfig(BaseEnvConfig):
+    """Shared ChatArch runtime preferences."""
+
+    _title = "ChatArch Configuration"
+    _aliases = ["chatarch"]
+    _storage_dir = "ChatArch"
+    _order = 0
+
+    CHATARCH_AUTO_PROMPT = EnvField(
+        "CHATARCH_AUTO_PROMPT",
+        default="true",
+        desc="Enable ChatEnv default prompts when command input is missing.",
+    )
+
+
 class OpenAIConfig(BaseEnvConfig):
     """Shared OpenAI-compatible model provider configuration."""
 
@@ -100,4 +115,4 @@ class FeishuConfig(BaseEnvConfig):
     )
 
 
-__all__ = ["OpenAIConfig", "FeishuConfig"]
+__all__ = ["ChatArchConfig", "OpenAIConfig", "FeishuConfig"]

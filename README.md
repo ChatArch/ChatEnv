@@ -103,7 +103,7 @@ chatenv token refresh PyPI RexWzh
 chatenv token status PyPI RexWzh
 ```
 
-敏感值默认 mask；`token status/list/clear` 只输出 safe metadata，不输出 raw token/cookie/CSRF values。
+敏感值默认完整遮罩：`init` 的已有值提示、默认 `cat` 和 `status --detail` 不展示密码/密钥的首尾片段；明确使用 `cat --no-mask` 才主动取原值。遮罩仅影响显示，不把星号写回 profile；`token status/list/clear` 只输出 safe metadata，不输出 raw token/cookie/CSRF values。
 
 ## Python API
 

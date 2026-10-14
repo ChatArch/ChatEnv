@@ -3,8 +3,19 @@ from chatenv.cli import cli
 from click.testing import CliRunner
 
 
+def test_release_workflow_cannot_publish_from_a_branch_dispatch():
+    from pathlib import Path
+
+    workflow = Path('.github/workflows/publish.yml').read_text(encoding='utf-8')
+    assert 'test "${GITHUB_REF_TYPE}" = "tag"' in workflow
+    assert "if: github.event_name == 'push'" not in workflow
+    assert workflow.index('Require release tag reference') < workflow.index('Publish to PyPI (OIDC)')
+    assert workflow.index('Check tag matches package version') < workflow.index('Publish to PyPI (OIDC)')
+    assert workflow.index('Check release commit is on default branch') < workflow.index('Publish to PyPI (OIDC)')
+
+
 def test_version_present():
-    assert __version__ == "0.2.12"
+    assert __version__ == "0.2.13"
 
 
 def test_cli_version_option():

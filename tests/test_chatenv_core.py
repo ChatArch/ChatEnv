@@ -573,9 +573,12 @@ def test_cli_paste_active_and_cat(tmp_path):
     cat = runner.invoke(cli, ["--home", str(home), "cat", "-t", "unit"])
     assert cat.exit_code == 0, cat.output
     assert "UNIT_VALUE='from-cli'" in cat.output
-    assert "sk-abcde" in cat.output
-    assert "123456" in cat.output
-    assert "abcdefghijklmnopqrstuvwxyz" not in cat.output
+    saved = EnvStore(home / "envs").load_active(UnitConfig)["UNIT_KEY"]
+    assert saved not in cat.output
+    assert "UNIT_KEY='" + "*" * len(saved) + "'" in cat.output
+    raw = runner.invoke(cli, ["--home", str(home), "cat", "-t", "unit", "--no-mask"])
+    assert raw.exit_code == 0
+    assert "UNIT_KEY='" + saved + "'" in raw.output
 
 
 def test_cli_cat_output_with_blank_lines_can_be_pasted_to_profile(tmp_path):

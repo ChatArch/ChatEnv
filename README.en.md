@@ -103,7 +103,7 @@ chatenv token refresh PyPI RexWzh
 chatenv token status PyPI RexWzh
 ```
 
-Sensitive values are masked by default. `token status/list/clear` prints safe metadata only and never prints raw token/cookie/CSRF values.
+Sensitive values are fully masked by default: existing-value hints in `init`, default `cat`, and `status --detail` show no prefix or suffix. `cat --no-mask` explicitly retrieves the raw value. Masking affects display only; it does not save stars to profiles. `token status/list/clear` prints safe metadata only and never prints raw token/cookie/CSRF values.
 
 ## Python API
 

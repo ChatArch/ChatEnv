@@ -2,6 +2,12 @@
 
 本项目按版本记录对用户可见的 CLI、运行时和发布流程变更。
 
+## 0.2.13 - 2026-10-14
+
+- 敏感字段默认完整遮罩：`init` 的 current 提示、默认 `cat` 及 `status --detail` 不再展示长密码/密钥的首尾片段；只有显式 `--no-mask` / 指定正数 visible 才允许主动取值。
+- 修复 `mask_secret(..., visible=0)` 使用负零切片时意外追加全部原值的问题；遮罩仅影响展示，原配置及输入保留逻辑不变。
+- 补充长值、Unicode、提示隐藏输入、原值保留及默认显示的回归测试。
+
 ## 0.2.12 - 2026-10-07
 
 - 新增内置、非敏感的 `ChatArch` typed schema：`CHATARCH_AUTO_PROMPT`（默认字符串 `true`），以 `envs/ChatArch/.env` 作为 active profile，支持 `chatarch` alias 及既有 status/cat/get/set/new/save/use 流程。

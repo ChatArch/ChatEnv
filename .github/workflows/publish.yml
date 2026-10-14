@@ -16,6 +16,8 @@ jobs:
       contents: read
       id-token: write
     steps:
+      - name: Require release tag reference
+        run: test "${GITHUB_REF_TYPE}" = "tag"
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
@@ -45,7 +47,6 @@ jobs:
               print(f"tag=v{version}", file=output)
           PY
       - name: Check tag matches package version
-        if: github.event_name == 'push'
         env:
           RELEASE_TAG: ${{ steps.meta.outputs.tag }}
         run: |
@@ -54,7 +55,6 @@ jobs:
             exit 1
           fi
       - name: Check release commit is on default branch
-        if: github.event_name == 'push'
         run: |
           git fetch --no-tags origin main:refs/remotes/origin/main
           git merge-base --is-ancestor "${GITHUB_SHA}" "origin/main"

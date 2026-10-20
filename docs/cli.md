@@ -98,6 +98,18 @@ chatenv delete -t example work    # 删除 work.env
 
 `new/save/delete` 遇到覆盖或删除会确认；自动化场景使用 `-y/--yes`。
 
+## 测试配置
+
+```bash
+chatenv test -t example             # 测试当前 active 配置
+chatenv test -t example work        # 仅测试 Example/work.env，不切换 active
+chatenv --home /tmp/chatarch test -t example work
+```
+
+不传 profile 时，加载所选 home 下目标类型的 active `.env`，缺少的字段按原有规则回退到进程环境变量和 schema 默认值。指定 profile 时，只加载该类型的命名 profile 和 schema 默认值；缺少的字段不会借用 active 配置、进程环境变量或上一次命令留下的值。profile 不存在时明确报错，不执行 provider 的 `test()`，也不修改配置文件。
+
+测试的具体内容由服务包实现，可能包含真实网络请求。例如安装 ChatGH 后，`chatenv test -t gh work` 测试 GitHub 的 `work` profile。
+
 ## Key 操作
 
 ```bash
@@ -175,5 +187,5 @@ chatenv
 ├── set [KEY-VALUE] [--interactive]  # Set a configuration value in the matching active typed env file.
 ├── save [NAME] [--type CONFIG-TYPES] [--yes] [--interactive]  # Save current active values as a named profile.
 ├── delete [NAME] [--type CONFIG-TYPES] [--yes] [--interactive]  # Delete a named profile for one config type.
-└── test [--target TARGET] [--interactive]  # Test a registered configuration schema.
+└── test [PROFILE] [--target TARGET] [--interactive]  # Test active configuration or a named PROFILE for one target.
 ```

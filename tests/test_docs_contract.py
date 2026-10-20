@@ -58,7 +58,7 @@ def test_public_docs_keep_live_cli_tree_contract() -> None:
         "├── token  # Manage generic runtime token profiles.",
         "│   ├── refresh <SERVICE> [PROFILE]",
         "│   ├── import <SERVICE> [PROFILE]",
-        "└── test [--target TARGET]",
+        "└── test [PROFILE] [--target TARGET]",
     ]
     for rel in ("README.md", "README.en.md", "docs/cli.md", "docs/cli.en.md"):
         text = Path(rel).read_text(encoding="utf-8")

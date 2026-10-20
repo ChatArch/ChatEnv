@@ -105,14 +105,17 @@ class BaseEnvConfig:
         cls,
         env_values: dict[str, Any] | None = None,
         override_values: dict[str, Any] | None = None,
+        *,
+        include_process_env: bool = True,
     ) -> None:
+        """Load values, optionally isolating a named profile from process env."""
         env_values = env_values or {}
         override_values = override_values or {}
         for field in cls.get_fields().values():
             value = override_values.get(field.env_key)
             if value is None:
                 value = env_values.get(field.env_key)
-            if value is None:
+            if value is None and include_process_env:
                 value = os.getenv(field.env_key)
             field.value = field.default if value is None else value
 

@@ -2,6 +2,13 @@
 
 本项目按版本记录对用户可见的 CLI、运行时和发布流程变更。
 
+## 0.2.14 - 2026-10-20
+
+- `chatenv test -t TYPE [PROFILE]` 新增可选 profile 位置参数，可直接测试命名配置，不修改 active `.env`。
+- 测试前加载所选 home 下的目标配置；不传 profile 时保留 active 文件、进程环境变量与 schema 默认值的回退顺序。
+- 命名 profile 仅使用该文件和 schema 默认值，缺字段不再借用 active、进程或上次命令的凭据；不存在的 profile 明确失败。
+- `BaseEnvConfig.load_from_sources()` 新增向后兼容的 `include_process_env` 关键字参数，供需要隔离 profile 的调用方使用。
+
 ## 0.2.13 - 2026-10-14
 
 - 敏感字段默认完整遮罩：`init` 的 current 提示、默认 `cat` 及 `status --detail` 不再展示长密码/密钥的首尾片段；只有显式 `--no-mask` / 指定正数 visible 才允许主动取值。

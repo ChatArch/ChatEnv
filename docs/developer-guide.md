@@ -187,7 +187,10 @@ chatenv list
 chatenv init -t foo -i
 chatenv cat -t foo
 chatenv test -t foo
+chatenv test -t foo work
 ```
+
+`test()` 收到的是已加载的目标配置。`chatenv test -t foo work` 只加载命名 profile，不激活它，且不会从进程环境或 active profile 补齐缺字段。provider 应直接检查字段值，避免在 `test()` 内重新加载默认配置。通用 API `load_from_sources(..., include_process_env=False)` 可用于同样的隔离加载；省略参数保留原有环境变量回退。
 
 `chatenv status --detail` 会按 platform/schema 展示变量清单，并在 platform 行和每个变量行标出 `provider=<entry-point-package>`；内置共享 schema 的 provider 显示为 `chatenv`。
 

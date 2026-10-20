@@ -52,6 +52,18 @@ chatenv set EXAMPLE_API_KEY=sk-xxx
 chatenv get EXAMPLE_API_KEY
 ```
 
+## Test configuration
+
+```bash
+chatenv test -t example             # Test the current active configuration
+chatenv test -t example work        # Test only Example/work.env without activating it
+chatenv --home /tmp/chatarch test -t example work
+```
+
+Without a profile, the command loads the target's active `.env` under the selected home, then falls back to process environment variables and schema defaults for missing fields. With a profile, it loads only that target's named profile and schema defaults. Missing fields never reuse active values, process environment variables, or values left by an earlier command. A missing profile fails before the provider's `test()` runs, and no configuration files are changed.
+
+Each service package defines its test behavior, which may include live network requests. For example, with ChatGH installed, `chatenv test -t gh work` tests the GitHub `work` profile.
+
 ## Runtime tokens
 
 Runtime tokens are generated state, not manually maintained env files:
@@ -101,5 +113,5 @@ chatenv
 ├── set [KEY-VALUE] [--interactive]  # Set a configuration value in the matching active typed env file.
 ├── save [NAME] [--type CONFIG-TYPES] [--yes] [--interactive]  # Save current active values as a named profile.
 ├── delete [NAME] [--type CONFIG-TYPES] [--yes] [--interactive]  # Delete a named profile for one config type.
-└── test [--target TARGET] [--interactive]  # Test a registered configuration schema.
+└── test [PROFILE] [--target TARGET] [--interactive]  # Test active configuration or a named PROFILE for one target.
 ```

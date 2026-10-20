@@ -40,11 +40,34 @@ class EnvStore:
     def load_profile(self, config_cls: type[BaseEnvConfig], name: str) -> dict[str, str]:
         return self.load_path(self.profile_path(config_cls, name))
 
-    def load_path(self, path: str | Path) -> dict[str, str]:
+    def load_path(self, path: str | Path, *, interpolate: bool = True) -> dict[str, str]:
         file_path = Path(path)
         if not file_path.exists():
             return {}
-        return {key: value for key, value in dotenv_values(file_path).items() if value is not None}
+        return {
+            key: value
+            for key, value in dotenv_values(file_path, interpolate=interpolate).items()
+            if value is not None
+        }
+
+    def load_config(self, config_cls: type[BaseEnvConfig], profile: str | None = None) -> Path:
+        """Load one active or isolated named config without activating a profile.
+
+        Active loading preserves legacy provider source-loader overrides. Named
+        profiles use literal file values and schema defaults, avoiding process
+        interpolation and overrides that may assume active-profile semantics.
+        """
+        if profile is None:
+            config_cls.load_from_sources(env_values=self.load_active(config_cls))
+            return self.active_path(config_cls)
+        profile_name = normalize_profile_name(profile)
+        if not profile_name or profile_name in {".", ".."} or "/" in profile_name or "\\" in profile_name:
+            raise ValueError("Profile name must be a file name without path separators.")
+        path = self.profile_path(config_cls, profile_name)
+        if not path.is_file():
+            raise FileNotFoundError(path)
+        config_cls.load_from_profile(self.load_path(path, interpolate=False))
+        return path
 
     def save_active(self, config_cls: type[BaseEnvConfig], values: dict[str, Any] | None = None) -> Path:
         return self._save(config_cls, self.active_path(config_cls), values)

@@ -101,6 +101,13 @@ class BaseEnvConfig:
         cls.load_from_sources(env_values=env_values)
 
     @classmethod
+    def load_from_profile(cls, env_values: dict[str, Any]) -> None:
+        """Load an isolated profile without invoking legacy source-loader overrides."""
+        for field in cls.get_fields().values():
+            value = env_values.get(field.env_key)
+            field.value = field.default if value is None else value
+
+    @classmethod
     def load_from_sources(
         cls,
         env_values: dict[str, Any] | None = None,

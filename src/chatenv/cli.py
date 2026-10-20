@@ -862,16 +862,18 @@ def get_env(ctx: click.Context, key: str | None, interactive: bool | None):
 
 
 @cli.command(name="test")
+@click.argument("profile", required=False)
 @click.option("--target", "-t", required=False, help="Target service to test.")
+@click.pass_context
 @add_interactive_option
-def test_env(target: str | None, interactive: bool | None):
-    """Test a registered configuration schema."""
+def test_env(ctx: click.Context, profile: str | None, target: str | None, interactive: bool | None):
+    """Test active configuration or a named PROFILE for one target."""
     load_config_providers()
     inputs = resolve_command_inputs(
         schema=TEST_TARGET_SCHEMA,
         provided={"target": target},
         interactive=interactive,
-        usage="Usage: chatenv test --target TEXT [-i|-I]",
+        usage="Usage: chatenv test [PROFILE] --target TEXT [-i|-I]",
     )
     target = inputs["target"]
     config_cls = BaseEnvConfig.get_config_by_alias(target)
@@ -882,6 +884,21 @@ def test_env(target: str | None, interactive: bool | None):
             aliases = ", ".join(cls._aliases)
             click.echo(f"  - {cls._title}: {aliases}")
         raise click.Abort()
+    store = _store(ctx)
+    if profile is None:
+        config_cls.load_from_sources(env_values=store.load_active(config_cls))
+    else:
+        try:
+            path = store.profile_path(config_cls, profile)
+        except ValueError as exc:
+            raise click.ClickException(str(exc)) from exc
+        if not path.is_file():
+            raise click.ClickException(f"Environment profile '{path}' not found.")
+        config_cls.load_from_sources(
+            env_values=store.load_profile(config_cls, profile),
+            include_process_env=False,
+        )
+        click.echo(f"Profile: {config_cls.get_storage_name()}/{path.stem}")
     config_cls.test()
 
 

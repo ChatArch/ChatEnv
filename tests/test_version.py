@@ -15,7 +15,7 @@ def test_release_workflow_cannot_publish_from_a_branch_dispatch():
 
 
 def test_version_present():
-    assert __version__ == "0.2.13"
+    assert __version__ == "0.2.14"
 
 
 def test_cli_version_option():

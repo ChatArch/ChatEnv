@@ -87,4 +87,7 @@ chatenv list
 chatenv init -t foo -i
 chatenv cat -t foo
 chatenv test -t foo
+chatenv test -t foo work
 ```
+
+`test()` receives the loaded target configuration. `chatenv test -t foo work` loads a named profile without activating it or filling missing fields from process environment or active values. Providers should inspect the loaded fields rather than reload default configuration inside `test()`. The shared `load_from_sources(..., include_process_env=False)` API supports the same isolated loading; omitting the option preserves process environment fallback.

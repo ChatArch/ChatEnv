@@ -63,7 +63,7 @@ Active-profile integration is currently implemented by the ChatEnv CLI only. Oth
 
 `chatenv --tree` renders the live Click command registry with parameter signatures. `chatenv --tree-brief` reads the same registry without parameter signatures.
 
-Test active or named configuration with `chatenv test -t example` / `chatenv test -t example work`. Named profiles use their own fields and schema defaults without activating the profile or borrowing default credentials.
+Test active or named configuration with `chatenv test -t example` / `chatenv test -t example work` / `chatenv test -t example --profile work`. Named profiles use their own fields and schema defaults without activating the profile or borrowing default credentials.
 
 ```text
 chatenv
@@ -89,7 +89,7 @@ chatenv
 ├── set [KEY-VALUE] [--interactive]  # Set a configuration value in the matching active typed env file.
 ├── save [NAME] [--type CONFIG-TYPES] [--yes] [--interactive]  # Save current active values as a named profile.
 ├── delete [NAME] [--type CONFIG-TYPES] [--yes] [--interactive]  # Delete a named profile for one config type.
-└── test [PROFILE] [--target TARGET] [--interactive]  # Test active configuration or a named PROFILE for one target.
+└── test [PROFILE] [--target TARGET] [--profile NAME] [--interactive]  # Test active configuration or a named PROFILE for one target.
 ```
 
 ## Common commands

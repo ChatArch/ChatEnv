@@ -63,7 +63,7 @@ active-profile 集成目前只由 ChatEnv CLI 实现；其他 ChatArch CLI 仍�
 
 `chatenv --tree` 从当前安装包的 Click 注册表实时输出带参数签名的完整命令面；`chatenv --tree-brief` 读取同一注册表，但省略参数签名。
 
-测试当前或命名配置：`chatenv test -t example` / `chatenv test -t example work`。命名 profile 只使用自身字段与 schema 默认值，不切换 active，也不借用默认凭据。
+测试当前或命名配置：`chatenv test -t example` / `chatenv test -t example work` / `chatenv test -t example --profile work`。命名 profile 只使用自身字段与 schema 默认值，不切换 active，也不借用默认凭据。
 
 ```text
 chatenv
@@ -89,7 +89,7 @@ chatenv
 ├── set [KEY-VALUE] [--interactive]  # Set a configuration value in the matching active typed env file.
 ├── save [NAME] [--type CONFIG-TYPES] [--yes] [--interactive]  # Save current active values as a named profile.
 ├── delete [NAME] [--type CONFIG-TYPES] [--yes] [--interactive]  # Delete a named profile for one config type.
-└── test [PROFILE] [--target TARGET] [--interactive]  # Test active configuration or a named PROFILE for one target.
+└── test [PROFILE] [--target TARGET] [--profile NAME] [--interactive]  # Test active configuration or a named PROFILE for one target.
 ```
 
 ## 常用命令

@@ -88,6 +88,9 @@ chatenv init -t foo -i
 chatenv cat -t foo
 chatenv test -t foo
 chatenv test -t foo work
+chatenv test -t foo --profile work
 ```
+
+Reusable profile loading for future commands is available through `EnvStore.load_config(config_cls, profile=None)`, which returns the loaded path. Active mode preserves legacy `load_from_sources(env_values=...)` overrides. Named mode uses `BaseEnvConfig.load_from_profile(values)` to assign literal file values and schema defaults, bypassing legacy source loaders that do not accept new keywords. A missing named profile raises `FileNotFoundError`. No arguments are added to provider `test()` methods.
 
 `test()` receives the loaded target configuration. `chatenv test -t foo work` loads a named profile without activating it or filling missing fields from process environment or active values. Providers should inspect the loaded fields rather than reload default configuration inside `test()`. The shared `load_from_sources(..., include_process_env=False)` API supports the same isolated loading; omitting the option preserves process environment fallback.

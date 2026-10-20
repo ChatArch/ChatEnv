@@ -188,7 +188,10 @@ chatenv init -t foo -i
 chatenv cat -t foo
 chatenv test -t foo
 chatenv test -t foo work
+chatenv test -t foo --profile work
 ```
+
+后续命令可复用 `EnvStore.load_config(config_cls, profile=None)`，返回所加载的路径。active 模式保留旧 `load_from_sources(env_values=...)` override；命名模式通过 `BaseEnvConfig.load_from_profile(values)` 直接加载字面字段值和 schema 默认值，不向旧 source loader 强传新增 keyword。命名 profile 不存在时抛出 `FileNotFoundError`。provider 的 `test()` 不新增任何参数。
 
 `test()` 收到的是已加载的目标配置。`chatenv test -t foo work` 只加载命名 profile，不激活它，且不会从进程环境或 active profile 补齐缺字段。provider 应直接检查字段值，避免在 `test()` 内重新加载默认配置。通用 API `load_from_sources(..., include_process_env=False)` 可用于同样的隔离加载；省略参数保留原有环境变量回退。
 

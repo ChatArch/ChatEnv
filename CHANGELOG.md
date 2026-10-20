@@ -2,6 +2,13 @@
 
 本项目按版本记录对用户可见的 CLI、运行时和发布流程变更。
 
+## 0.2.15 - 2026-10-20
+
+- `chatenv test -t TYPE --profile NAME` 新增显式 profile 选项，兼容 0.2.14 的位置参数；二者同名可同时传入，冲突时明确失败。
+- 新增 `EnvStore.load_config(config_cls, profile=None)` 作为后续命令可复用的配置选择与加载入口；provider `test()` 保留无参调用。
+- 修复旧 provider 的 `load_from_sources` override 不接受新增 keyword 时的兼容性：active 保留旧调用，named 使用独立的 `load_from_profile` 字段加载入口。
+- 命名 profile 的 dotenv 值按字面值读取，关闭进程变量插值，避免 `${VAR}` 意外借用默认进程凭据；既有 active 加载与 store API 默认解析行为不变。
+
 ## 0.2.14 - 2026-10-20
 
 - `chatenv test -t TYPE [PROFILE]` 新增可选 profile 位置参数，可直接测试命名配置，不修改 active `.env`。
